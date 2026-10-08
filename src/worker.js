@@ -1,0 +1,204 @@
+// Nebulux Sites: people tell us the website they want, pay, and we build it.
+// A Cloudflare Worker: static pages in /public, this file answers /api/*.
+// Accounts: email + password, and every sign-up and log-in is confirmed with a 6-digit code
+// sent by email (unless "Remember me" was ticked on that device, for 30 days).
+// Storage: D1 (binding DB). Emails: Resend (secret RESEND_API_KEY). Admin page: secret ADMIN_KEY.
+
+// The packages and prices (US dollars). Change them here.
+export const PACKAGES = {
+  starter: { name: "Starter", price: 49, blurb: "A one-page website: perfect for a small business, club or portfolio." },
+  business: { name: "Business", price: 99, blurb: "Up to 5 pages with a contact form, built to look great on phones." },
+  store: { name: "Online Store", price: 199, blurb: "A shop with products, a cart and checkout." },
+  custom: { name: "Custom", price: 0, blurb: "Something bigger? Tell us and we'll send a quote." },
+};
+const STATUSES = ["awaiting payment", "paid", "building", "done", "cancelled"];
+
+const enc = new TextEncoder();
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+const randomHex = (n) => hex(crypto.getRandomValues(new Uint8Array(n)));
+const sha = async (s) => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+async function hashPassword(pw, salt) {
+  const key = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  return hex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode(salt), iterations: 100000 }, key, 256));
+}
+const sameText = async (a, b) => (await sha(String(a))) === (await sha(String(b)));
+const json = (obj, status = 200, headers = {}) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...headers } });
+const cleanEmail = (e) => String(e || "").trim().toLowerCase().slice(0, 254);
+const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(e);
+const clip = (v, n) => String(v == null ? "" : v).slice(0, n);
+function cookie(req, name) { const m = (req.headers.get("cookie") || "").match(new RegExp("(?:^|; )" + name + "=([^;]+)")); return m ? m[1] : ""; }
+const setCookie = (name, value, days) => `${name}=${value}; Path=/; Max-Age=${Math.round(days * 86400)}; HttpOnly; Secure; SameSite=Lax`;
+
+// a light per-network limit (Cloudflare's free cache)
+async function allow(key, max, sec) {
+  try {
+    const slot = Math.floor(Date.now() / 1000 / sec), req = new Request(`https://limits.nebuluxsites/${encodeURIComponent(key)}/${slot}`);
+    const hit = await caches.default.match(req), n = hit ? Number(await hit.text()) || 0 : 0;
+    if (n >= max) return false;
+    await caches.default.put(req, new Response(String(n + 1), { headers: { "cache-control": `max-age=${sec}` } }));
+  } catch (e) {}
+  return true;
+}
+
+let ready = false;
+async function ensure(db) {
+  if (ready) return;
+  await db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT, pw_hash TEXT, pw_salt TEXT, verified INTEGER DEFAULT 0, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, code_hash TEXT, expires INTEGER, tries INTEGER DEFAULT 0)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
+  ]);
+  ready = true;
+}
+
+async function sendCode(env, email) {
+  if (!env.RESEND_API_KEY) throw Object.assign(new Error("Email isn't set up yet. Please try again later."), { status: 503 });
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  await env.DB.prepare("INSERT OR REPLACE INTO codes (email, code_hash, expires, tries) VALUES (?, ?, ?, 0)").bind(email, await sha(code), Date.now() + 10 * 60000).run();
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [email], subject: `${code} is your Nebulux Sites code`,
+      text: `Your Nebulux Sites code is ${code}\n\nIt works for 10 minutes. If you didn't try to sign in, you can ignore this email.`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f172a"><h2>Your Nebulux Sites code</h2><p style="font-size:34px;font-weight:800;letter-spacing:6px">${code}</p><p>It works for 10 minutes. If you didn't try to sign in, you can ignore this email.</p></div>`,
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) throw Object.assign(new Error("We couldn't send the email. Please try again in a minute."), { status: 502 });
+}
+async function startSession(env, userId, remember) {
+  const token = randomHex(32);
+  await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(token), userId, Date.now() + 30 * 86400000).run();
+  const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
+  headers.append("set-cookie", setCookie("ns_session", token, remember ? 30 : 1));
+  if (remember) {
+    const t = randomHex(32);
+    await env.DB.prepare("INSERT INTO trusted (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(t), userId, Date.now() + 30 * 86400000).run();
+    headers.append("set-cookie", setCookie("ns_trust", t, 30));
+  }
+  return new Response(JSON.stringify({ ok: true }), { headers });
+}
+async function currentUser(env, req) {
+  const t = cookie(req, "ns_session"); if (!t) return null;
+  const s = await env.DB.prepare("SELECT user_id, expires FROM sessions WHERE token_hash = ?").bind(await sha(t)).first();
+  if (!s || s.expires < Date.now()) return null;
+  return env.DB.prepare("SELECT id, email, name FROM users WHERE id = ?").bind(s.user_id).first();
+}
+async function trustedFor(env, req, userId) {
+  const t = cookie(req, "ns_trust"); if (!t) return false;
+  const row = await env.DB.prepare("SELECT user_id, expires FROM trusted WHERE token_hash = ?").bind(await sha(t)).first();
+  return !!(row && row.user_id === userId && row.expires > Date.now());
+}
+
+async function api(req, env, path) {
+  const ip = req.headers.get("cf-connecting-ip") || "unknown";
+  const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const db = env.DB;
+  if (path === "/api/packages") return json({ packages: PACKAGES });
+
+  // ---- accounts ----
+  if (path === "/api/signup" && req.method === "POST") {
+    if (!(await allow("signup:" + ip, 10, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
+    const email = cleanEmail(body.email), pw = String(body.password || ""), name = clip(body.name, 80).trim();
+    if (!validEmail(email)) return json({ error: "Enter a real email address." }, 400);
+    if (pw.length < 8) return json({ error: "Use at least 8 characters for your password." }, 400);
+    if (!name) return json({ error: "Tell us your name." }, 400);
+    const existing = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
+    if (existing && existing.verified) return json({ error: "There's already an account with this email. Log in instead." }, 400);
+    const salt = randomHex(16), hash = await hashPassword(pw, salt);
+    if (existing) await db.prepare("UPDATE users SET name = ?, pw_hash = ?, pw_salt = ? WHERE id = ?").bind(name, hash, salt, existing.id).run();
+    else await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)").bind(randomHex(12), email, name, hash, salt, new Date().toISOString()).run();
+    await sendCode(env, email);
+    return json({ needCode: true });
+  }
+  if (path === "/api/login" && req.method === "POST") {
+    const email = cleanEmail(body.email);
+    if (!(await allow("login:" + ip, 30, 900)) || !(await allow("login:" + email, 10, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
+    const u = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+    if (!u || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) return json({ error: "Wrong email or password." }, 401);
+    // a device that ticked "Remember me" skips the code
+    if (u.verified && (await trustedFor(env, req, u.id))) return startSession(env, u.id, true);
+    await sendCode(env, email);
+    return json({ needCode: true });
+  }
+  if (path === "/api/verify" && req.method === "POST") {
+    const email = cleanEmail(body.email);
+    if (!(await allow("verify:" + ip, 30, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
+    const c = await db.prepare("SELECT * FROM codes WHERE email = ?").bind(email).first();
+    if (!c || c.expires < Date.now() || c.tries >= 5) return json({ error: "That code has expired. Send a new one." }, 400);
+    if (!(await sameText(await sha(String(body.code || "").trim()), c.code_hash))) {
+      await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ?").bind(email).run();
+      return json({ error: "That code isn't right. Check the email and try again." }, 400);
+    }
+    await db.prepare("DELETE FROM codes WHERE email = ?").bind(email).run();
+    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (!u) return json({ error: "Please sign up again." }, 400);
+    await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(u.id).run();
+    return startSession(env, u.id, !!body.remember);
+  }
+  if (path === "/api/resend" && req.method === "POST") {
+    const email = cleanEmail(body.email);
+    if (!(await allow("resend:" + email, 4, 3600))) return json({ error: "Too many codes. Please wait a while." }, 429);
+    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (u) await sendCode(env, email);
+    return json({ ok: true });
+  }
+  if (path === "/api/logout" && req.method === "POST") {
+    const t = cookie(req, "ns_session");
+    if (t) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha(t)).run();
+    return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
+  }
+  if (path === "/api/me") return json({ user: await currentUser(env, req) });
+
+  // ---- orders ----
+  if (path === "/api/order" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (!(await allow("order:" + u.id, 10, 3600))) return json({ error: "Too many orders at once. Please wait a while." }, 429);
+    const pkg = PACKAGES[body.package]; if (!pkg) return json({ error: "Pick a package." }, 400);
+    const details = clip(body.details, 4000).trim();
+    if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
+    const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
+    await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
+      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, clip(body.pages, 300), clip(body.deadline, 40), clip(body.links, 600), "awaiting payment", now, now).run();
+    if (env.RESEND_API_KEY && env.OWNER_EMAIL) {
+      fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+        body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [env.OWNER_EMAIL], subject: `New order ${id}: ${pkg.name}`, text: `${u.name} (${u.email}) ordered ${pkg.name}.\n\n${details}\n\nOpen the admin page to send them a payment link.` }) }).catch(() => {});
+    }
+    return json({ ok: true, id });
+  }
+  if (path === "/api/orders") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const r = await db.prepare("SELECT id, package, price, kind, status, pay_link, note, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    return json({ orders: r.results || [] });
+  }
+
+  // ---- admin (the owner, with the ADMIN_KEY secret) ----
+  if (path.startsWith("/api/admin/")) {
+    if (!env.ADMIN_KEY) return json({ error: "Set the ADMIN_KEY secret on the Worker first." }, 503);
+    if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
+    if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
+    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/order" && req.method === "POST") {
+      const status = STATUSES.includes(body.status) ? body.status : null;
+      const link = String(body.pay_link || "").trim();
+      if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
+      await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), updated_at = ? WHERE id = ?")
+        .bind(status, clip(link, 500), clip(body.note, 1000), Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, new Date().toISOString(), clip(body.id, 20)).run();
+      return json({ ok: true });
+    }
+  }
+  return json({ error: "Not found" }, 404);
+}
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (url.pathname.startsWith("/api/")) {
+      try { await ensure(env.DB); return await api(req, env, url.pathname); }
+      catch (e) { return json({ error: e.status ? e.message : "Something went wrong. Please try again." }, e.status || 500); }
+    }
+    return env.ASSETS.fetch(req);
+  },
+};

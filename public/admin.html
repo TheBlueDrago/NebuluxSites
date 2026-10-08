@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Orders · Nebulux Sites admin</title>
+<link rel="icon" href="/logo.png"><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
+<main>
+  <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="list" style="display:none"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+let KEY = sessionStorage.getItem("ns-admin") || "";
+const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers: { "x-admin-key": KEY, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
+async function load() {
+  const r = await call("/api/admin/orders");
+  if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = "";
+  $("list").innerHTML = `<h2 style="margin:0 0 12px;text-align:left">Orders (${r.orders.length})</h2>` + (r.orders.map((o) => `
+    <div class="card" style="margin-bottom:12px">
+      <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span class="tag">${esc(o.status)}</span></div>
+      <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
+      <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>
+      ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}
+      <div class="row" style="margin-top:8px">
+        <select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+        <input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px">
+        <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Payment link (https://…)" style="flex:1;min-width:200px">
+      </div>
+      <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Note the customer sees" style="margin-top:8px">
+      <button class="btn" style="margin-top:8px" data-save="${esc(o.id)}">Save</button> <span class="ok" data-ok="${esc(o.id)}"></span>
+    </div>`).join("") || '<p class="muted">No orders yet.</p>');
+  document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
+    const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
+    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n") });
+    document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
+  }));
+}
+$("go").onclick = () => { KEY = $("key").value; load(); };
+if (KEY) load();
+</script>
+</body>
+</html>
