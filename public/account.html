@@ -258,16 +258,14 @@ async function drawMonitor() {
   $("monBody").innerHTML = done.map((o) => `<div class="order" id="mon-${esc(o.id)}"><div class="order-top"><div><span class="muted">${esc(o.id)}</span><h3>${esc(o.kind || "Your website")}</h3></div></div><p class="muted">Checking…</p></div>`).join("");
   for (const o of done) monOne(o.id);
 }
-async function monOne(id, liveUrl) {
-  const r = liveUrl != null ? await post("/api/monitor", { id, live_url: liveUrl }) : await fetch("/api/monitor?id=" + encodeURIComponent(id)).then((x) => x.json()).catch(() => ({}));
+async function monOne(id) {
+  const r = await fetch("/api/monitor?id=" + encodeURIComponent(id)).then((x) => x.json()).catch(() => ({}));
   const box = document.getElementById("mon-" + id); if (!box) return;
   const c = r.check, o = ORDERS.find((x) => x.id === id) || {};
   const STAT = { asked: ["Waiting for our price", ""], quoted: ["Ready to pay", "t-awaiting-payment"], paid: ["We're working on it", "t-building"], done: ["Done", "t-done"], declined: ["Declined", "t-cancelled"] };
   box.innerHTML = `<div class="order-top"><div><span class="muted">${esc(id)}</span><h3>${esc(o.kind || "Your website")}</h3></div>${c ? `<span class="tag ${c.up ? "t-done" : "t-cancelled"}">${c.up ? "● Online" : "● Offline"}</span>` : ""}</div>
-    <label>Your website's address</label>
-    <form class="mform" onsubmit="event.preventDefault(); monOne('${esc(id)}', this.querySelector('input').value)"><input placeholder="mybakery.com" value="${esc(r.live_url || "")}"><button class="btn">${r.live_url ? "Update" : "Save"}</button></form>
-    ${r.error ? `<p class="err">${esc(r.error)}</p>` : ""}
-    ${c ? `<div class="tiles" style="margin-top:16px"><div class="tile"><small>Status</small><b>${c.up ? "Online" : "Offline"}</b><span>${c.code ? "Answer " + c.code : "No answer"}</span></div><div class="tile"><small>Speed</small><b>${(c.ms / 1000).toFixed(1)}s</b><span>${c.ms < 800 ? "Fast" : c.ms < 2000 ? "OK" : "Slow"}</span></div><div class="tile"><small>Secure</small><b>${c.https ? "Yes" : "No"}</b><span>${c.https ? "Uses https 🔒" : "Turn on https at your host"}</span></div></div>${c.title ? `<p class="muted">Page title: ${esc(c.title)}</p>` : ""}<p class="muted" style="font-size:13px">Checked ${new Date(r.at).toLocaleString()} · <a href="#" onclick="event.preventDefault(); monOne('${esc(id)}')">Check again</a> · <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">Visit ↗</a></p>` : r.live_url ? "" : '<p class="muted">Add your website\'s address to watch it.</p>'}
+    ${r.live_url ? `<p class="muted">Your website: <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">${esc(r.live_url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></p>` : ""}
+    ${c ? `<div class="tiles" style="margin-top:16px"><div class="tile"><small>Status</small><b>${c.up ? "Online" : "Offline"}</b><span>${c.code ? "Answer " + c.code : "No answer"}</span></div><div class="tile"><small>Speed</small><b>${(c.ms / 1000).toFixed(1)}s</b><span>${c.ms < 800 ? "Fast" : c.ms < 2000 ? "OK" : "Slow"}</span></div><div class="tile"><small>Secure</small><b>${c.https ? "Yes" : "No"}</b><span>${c.https ? "Uses https 🔒" : "Turn on https at your host"}</span></div></div>${c.title ? `<p class="muted">Page title: ${esc(c.title)}</p>` : ""}<p class="muted" style="font-size:13px">Checked ${new Date(r.at).toLocaleString()} · <a href="#" onclick="event.preventDefault(); monOne('${esc(id)}')">Check again</a> · <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">Visit ↗</a></p>` : r.live_url ? "" : '<p class="muted">We\'re connecting your website. It will show up here soon.</p>'}
     <h4>Need an update?</h4>
     <p class="muted" style="font-size:14px">Tell us what you'd like changed. We'll reply with a price (small things can be free), and you pay before we start.</p>
     <form class="upform" onsubmit="sendUpgrade(event, '${esc(id)}')"><textarea maxlength="2000" required placeholder="e.g. Add a new cookie flavor to the menu and change the opening hours"></textarea><button class="btn">Send request</button></form>

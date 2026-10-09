@@ -436,7 +436,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       db.prepare("UPDATE orders SET paid_total = ?, status = ?, claimed = '', updated_at = ? WHERE id = ?").bind(total, next, now, o.id),
     ]);
     if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
-    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} by card.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete. Add the ZIP link on the admin page if you haven't."}\n\n${SITE}/admin.html`);
+    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} by card.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete, so it now shows in their Monitor tab. Add their live website address on the admin page so Monitor can check it."}\n\n${SITE}/admin.html`);
     if (next === "complete" && !o.github && !o.zip_url) await mail(env, env.OWNER_EMAIL, `${o.id} is paid but has no ZIP!`, `${u.name} (${u.email}) paid in full for ${o.id}, but there's no GitHub repo or ZIP link for it, so they can't download their website. Add it now on the admin page:\n\n${SITE}/admin.html`);
     await mail(env, u.email, `Payment received for ${o.id}`, `Hi ${u.name || "there"},\n\nWe got your payment of $${paid.toFixed(2)} (${bill.label}). Thank you!\n\n${bill.due === "deposit" ? "We're starting on your website now. You can watch the live preview on your account page." : left > 0 ? `$${left.toFixed(2)} is left to pay.` : "Your website is fully paid. Download it from your account page."}\n\n${SITE}/account.html\n\nNebulux Sites`);
     return json({ ok: true, status: next, left });
@@ -535,14 +535,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
     const o = await db.prepare("SELECT id, live_url FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
     if (!o) return json({ error: "We couldn't find that website." }, 404);
-    if (req.method === "POST" && typeof body.live_url === "string") {
-      let url = body.live_url.trim();
-      if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
-      try { if (url) { const x = new URL(url); if (!/\./.test(x.hostname) || /^(localhost|\d+\.\d+\.\d+\.\d+)$/.test(x.hostname)) throw 0; url = x.origin + x.pathname; } }
-      catch { return json({ error: "That doesn't look like a website address." }, 400); }
-      await db.prepare("UPDATE orders SET live_url = ? WHERE id = ?").bind(clip(url, 300), id).run();
-      o.live_url = url;
-    }
+    // Only the website we built: its address is set by the owner on the admin page.
     let check = null;
     if (o.live_url && (await allow("mon:" + u.id, 60, 3600))) {
       const t0 = Date.now();
@@ -672,6 +665,12 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
         const repo = ghRepo(body.github);
         if (body.github.trim() && !repo) return json({ error: "Use the repo like owner/repo or its github.com link." }, 400);
         await db.prepare("UPDATE orders SET github = ? WHERE id = ?").bind(repo, clip(body.id, 20)).run();
+      }
+      if (typeof body.live_url === "string") {
+        let lu = body.live_url.trim();
+        if (lu && !/^https?:\/\//i.test(lu)) lu = "https://" + lu;
+        try { if (lu) lu = new URL(lu).href; } catch { return json({ error: "That website address isn't valid." }, 400); }
+        await db.prepare("UPDATE orders SET live_url = ? WHERE id = ?").bind(clip(lu, 300), clip(body.id, 20)).run();
       }
       const zip = String(body.zip_url || "").trim();
       if (zip && !/^https:\/\//.test(zip)) return json({ error: "The ZIP link has to start with https://" }, 400);

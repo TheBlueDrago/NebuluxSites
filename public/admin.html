@@ -44,6 +44,8 @@ async function load() {
         <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
         <label style="margin:0 0 0 8px">Progress</label><input data-g="${esc(o.id)}" type="range" min="0" max="100" step="5" value="${o.progress || 0}" style="flex:1;min-width:140px;padding:0" oninput="this.nextElementSibling.textContent=this.value+'%'"><b>${o.progress || 0}%</b>
       </div>
+      <label style="margin:12px 0 4px">Their live website address (shows in their Monitor tab)</label>
+      <input data-lu="${esc(o.id)}" value="${esc(o.live_url || "")}" placeholder="e.g. mybakery.com">
       <label style="margin:12px 0 4px">GitHub repo (the preview updates by itself from it)</label>
       <input data-gh="${esc(o.id)}" value="${esc(o.github)}" placeholder="owner/repo or https://github.com/owner/repo">
       ${o.github ? `<p class="muted" style="font-size:13px;margin-top:4px">Connected: <a href="https://github.com/${esc(o.github)}" target="_blank" rel="noopener">github.com/${esc(o.github)}</a></p>` : ""}
@@ -69,7 +71,7 @@ async function load() {
   document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline and delete this request? They get an email, and it disappears for both of you.") && quick(b.dataset.dec, "cancelled")));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
-    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), github: q("gh"), zip_url: q("z") });
+    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), github: q("gh"), zip_url: q("z"), live_url: q("lu") });
     document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
   }));
 }
