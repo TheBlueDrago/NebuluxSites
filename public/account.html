@@ -106,7 +106,7 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
-let mode = "login", PKG = {}, ADDONS = {};
+let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30;
 const want = new URLSearchParams(location.search).get("package");
 function show(id) { for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
 function setMode(m) {
@@ -250,7 +250,7 @@ async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) 
 async function loadOrders() {
   const r = await fetch("/api/orders").then((x) => x.json());
   const openMsgs = [...document.querySelectorAll("details.msgs[open]")].map((d) => d.dataset.mid);
-  const list = r.orders || []; ORDERS = list;
+  const list = r.orders || []; ORDERS = list; FIRST = !!r.first; FIRST_OFF = r.firstOff || 30; if (window.sumUp) sumUp();
   const act = list.find(ACTIVE), paidAll = list.reduce((n, o) => n + (o.paid_total || 0), 0);
   const nextStep = !act ? "Request a website" : { "in review": "We're reviewing it", "awaiting deposit": "Pay your $5 fee", building: "We're building it", "awaiting payment": "Pay the rest" }[act.status] || act.status;
   const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : 0}%</b><span>${act ? esc(act.kind || act.id) : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
@@ -281,12 +281,13 @@ async function start() {
   const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
   ADDONS = addons || {};
   $("addons").innerHTML = Object.entries(ADDONS).map(([id, a]) => `<label class="addon"><input type="checkbox" name="addon" value="${id}"><div><b>${esc(a.name)} <span>+$${a.price}</span></b><small>${esc(a.blurb)}</small></div></label>`).join("");
-  const sumUp = () => {
+  window.sumUp = () => {
     const pk = document.querySelector('input[name="pkg"]:checked'), p = pk ? PKG[pk.value] : null; if (!p) return;
     const extra = [...document.querySelectorAll('input[name="addon"]:checked')].reduce((n, x) => n + ADDONS[x.value].price, 0);
-    $("total").innerHTML = `Total: <b>$${p.price + extra}</b> ${extra ? `<span class="muted">($${p.price} website + $${extra} add-ons)</span>` : ""}<br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
+    const off = FIRST ? Math.round(p.price * FIRST_OFF / 100) : 0;
+    $("total").innerHTML = `${off ? `<span class="firstoff">🎉 Your first website: ${FIRST_OFF}% off your plan (−$${off})</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
   };
-  $("orderForm").addEventListener("change", sumUp); sumUp();
+  $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
   show("app"); await loadOrders(); setInterval(loadOrders, 60000);
   const hv = location.hash.slice(1); view(["dash", "prev", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }

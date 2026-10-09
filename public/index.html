@@ -97,7 +97,7 @@
 
   <div id="reviewsWrap" style="display:none"><div class="sh rv"><span class="eyebrow">Reviews</span><h2>What our customers say.</h2><p>Real reviews from people we built websites for.</p></div><section class="revgrid" id="revgrid"></section></div>
 
-  <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p></div>
+  <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p><p class="firstbadge">🎉 Your first website: <b>30% off</b> any plan, automatically</p></div>
   <section class="plans" id="plans"></section>
   <div class="addonbar rv" id="addonbar"></div>
   <p class="muted rv" style="text-align:center;margin-top:22px;font-size:14px">Every plan: free to request · $5 starting fee (comes off your price) · you set up your own domain, hosting and payment provider (we show you how) · *build times are estimates</p>
@@ -203,7 +203,7 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
   const order = ["monthly5", "monthly3", "onetime"].filter((k) => packages[k]);
   document.getElementById("plans").innerHTML = order.map((id, i) => {
     const p = packages[id], best = id === "onetime", per = p.label.includes("/month");
-    return `<div class="plan rv d${i}${best ? " best" : ""}"><span class="tagp">${best ? "Best deal · " : ""}${p.priority}</span><h3>${p.name === "One time" ? "One payment" : p.name + " plan"}</h3><div class="pr">${p.label.replace("/month", "")}<small>${per ? " /month" : " once"}</small></div><div class="tot">${per ? p.small + " · $" + p.price + " total" : "Pay once and save"}</div><ul>${(FEAT[id] || []).map((f) => `<li>${f}</li>`).join("")}</ul><a class="btn ${best ? "lux" : "glass"}" href="/account.html?package=${id}#req">Choose this plan</a></div>`;
+    return `<div class="plan rv d${i}${best ? " best" : ""}"><span class="tagp">${best ? "Best deal · " : ""}${p.priority}</span><h3>${p.name === "One time" ? "One payment" : p.name + " plan"}</h3><div class="pr">${p.label.replace("/month", "")}<small>${per ? " /month" : " once"}</small></div><div class="firstp">First website: <b>$${Math.round(p.price * 0.7)}</b> total <s>$${p.price}</s></div><div class="tot">${per ? p.small + " · $" + p.price + " total" : "Pay once and save"}</div><ul>${(FEAT[id] || []).map((f) => `<li>${f}</li>`).join("")}</ul><a class="btn ${best ? "lux" : "glass"}" href="/account.html?package=${id}#req">Choose this plan</a></div>`;
   }).join("");
   watch();
 }).catch(() => {});

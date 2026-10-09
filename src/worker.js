@@ -24,6 +24,8 @@ export const ADDONS = {
 // Messages: a customer gets FREE_MSGS free messages on each order. After that they buy
 // MSG_BLOCK more for MSG_PRICE dollars on the Billing page (so people describe things up front).
 const FREE_MSGS = 5, MSG_BLOCK = 10, MSG_PRICE = 1;
+// A customer's first website: FIRST_OFF percent off the plan (not the add-ons), applied automatically.
+const FIRST_OFF = 30;
 const DEPOSIT = 5;
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
 // (you finish) awaiting payment -> complete. Customers get an email when you accept and when
@@ -174,7 +176,7 @@ async function api(req, env, path) {
   const ip = req.headers.get("cf-connecting-ip") || "unknown";
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const db = env.DB;
-  if (path === "/api/packages") return json({ packages: PACKAGES, addons: ADDONS });
+  if (path === "/api/packages") return json({ packages: PACKAGES, addons: ADDONS, firstOff: FIRST_OFF });
   // Reviews: only from customers whose website is finished, and only shown after the owner approves.
   if (path === "/api/reviews") {
     const r = await db.prepare("SELECT name, business, stars, text, at FROM reviews WHERE approved = 1 ORDER BY at DESC LIMIT 12").all().catch(() => ({ results: [] }));
@@ -342,7 +344,10 @@ async function api(req, env, path) {
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     const extras = [...new Set(Array.isArray(body.addons) ? body.addons : [])].filter((a) => ADDONS[a]);
-    const total = pkg.price + extras.reduce((n, a) => n + ADDONS[a].price, 0);
+    // First website (no earlier order that went ahead): 30% off the plan.
+    const before = await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status != 'cancelled' LIMIT 1").bind(u.id).first();
+    const off = before ? 0 : Math.round(pkg.price * FIRST_OFF / 100);
+    const total = pkg.price - off + extras.reduce((n, a) => n + ADDONS[a].price, 0);
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
       .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
     if (extras.length) await db.prepare("UPDATE orders SET addons = ? WHERE id = ?").bind(extras.join(","), id).run();
@@ -514,8 +519,9 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
+    const first = !(await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status != 'cancelled' LIMIT 1").bind(u.id).first());
     for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
-    return json({ orders });
+    return json({ orders, first, firstOff: FIRST_OFF });
   }
 
   // ---- admin (the owner, with the ADMIN_KEY secret) ----

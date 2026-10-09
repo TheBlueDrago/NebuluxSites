@@ -49,3 +49,4 @@ details.msgs{max-width:none;margin:16px 0 0}
 .addon:has(input:checked){border-color:#d16cf5;background:rgba(209,108,245,.1)}
 .total{margin-top:16px;font-size:17px}.total b{font-size:22px}
 .mnote{font-size:13px;margin:-4px 0 10px}
+.firstoff{display:inline-block;margin-bottom:6px;padding:5px 12px;border-radius:999px;background:rgba(74,222,128,.15);color:#86efac;font-weight:700;font-size:14px}

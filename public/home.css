@@ -206,3 +206,5 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
 .hx h1{font-size:clamp(38px,7vw,96px)}
 .hx h1 .rot{display:block;white-space:nowrap;min-height:1.05em}
 .hx h1 .dot2{display:none}
+.firstbadge{display:inline-block;margin-top:14px!important;padding:8px 16px;border-radius:999px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#86efac!important;font-weight:600}
+.firstp{margin-top:8px;color:#86efac;font-size:14px}.firstp s{color:var(--soft);margin-left:4px}
