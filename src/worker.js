@@ -11,6 +11,19 @@ export const PACKAGES = {
   monthly3: { name: "3 months", price: 225, label: "$75/month", small: "for 3 months", priority: "Faster priority", time: "about 2–3 weeks", blurb: "$75 a month for 3 months. We start sooner than the 5-month plan." },
   onetime: { name: "One time", price: 199, label: "$199", small: "one time", priority: "Top priority", time: "about 1–2 weeks", blurb: "Pay once and save. Your site goes first in line, so it's ready fastest." },
 };
+// Add-ons: extras a customer can pick when ordering. Their prices are added to the website's
+// price (checked here, never trusted from the browser). Change them here.
+export const ADDONS = {
+  security: { name: "Extra security", price: 39, blurb: "Spam and bot protection on forms, security headers, safe settings for your host, and a security check before launch." },
+  seo: { name: "Google & SEO setup", price: 29, blurb: "Titles, descriptions, sitemap and Google Search Console set up so people can find you." },
+  rush: { name: "Rush delivery", price: 59, blurb: "We start right away and finish faster than your plan's normal time." },
+  logo: { name: "Logo design", price: 35, blurb: "A simple, clean logo for your business, in all the sizes you need." },
+  pages: { name: "Extra pages (up to 3)", price: 45, blurb: "Up to 3 more pages, like a gallery, menu or team page." },
+  care: { name: "1 month of changes", price: 25, blurb: "After launch, we make small changes for a month (new photos, prices, text)." },
+};
+// Messages: a customer gets FREE_MSGS free messages on each order. After that they buy
+// MSG_BLOCK more for MSG_PRICE dollars on the Billing page (so people describe things up front).
+const FREE_MSGS = 5, MSG_BLOCK = 10, MSG_PRICE = 1;
 const DEPOSIT = 5;
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
 // (you finish) awaiting payment -> complete. Customers get an email when you accept and when
@@ -114,7 +127,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -161,7 +174,7 @@ async function api(req, env, path) {
   const ip = req.headers.get("cf-connecting-ip") || "unknown";
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const db = env.DB;
-  if (path === "/api/packages") return json({ packages: PACKAGES });
+  if (path === "/api/packages") return json({ packages: PACKAGES, addons: ADDONS });
   // Reviews: only from customers whose website is finished, and only shown after the owner approves.
   if (path === "/api/reviews") {
     const r = await db.prepare("SELECT name, business, stars, text, at FROM reviews WHERE approved = 1 ORDER BY at DESC LIMIT 12").all().catch(() => ({ results: [] }));
@@ -328,18 +341,23 @@ async function api(req, env, path) {
     const details = clip(body.details, 4000).trim();
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
+    const extras = [...new Set(Array.isArray(body.addons) ? body.addons : [])].filter((a) => ADDONS[a]);
+    const total = pkg.price + extras.reduce((n, a) => n + ADDONS[a].price, 0);
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
-      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
+      .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
+    if (extras.length) await db.prepare("UPDATE orders SET addons = ? WHERE id = ?").bind(extras.join(","), id).run();
+    const wish = clip(String(body.wish || "").trim(), 1500);
+    if (wish) await db.prepare("UPDATE orders SET wish = ? WHERE id = ?").bind(wish, id).run();
     if (env.AIDB) await env.AIDB.prepare("ALTER TABLE site_orders ADD COLUMN status TEXT DEFAULT 'in review'").run().catch(() => {});
     if (env.AIDB) await env.AIDB.batch([
       env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT, status TEXT DEFAULT 'in review')"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
     ]).catch(() => {});
-    await mail(env, env.OWNER_EMAIL, `New request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}).
+    await mail(env, env.OWNER_EMAIL, `New request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}${extras.length ? " + " + extras.map((a) => ADDONS[a].name).join(", ") : ""}, $${total} total).
 
-${details}
+${details}${wish ? "\n\nAnything else they want: " + wish : ""}
 
-Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" and add the $5 payment link).`);
+Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     return json({ ok: true, id });
   }
   // ---- billing: our own card form (card + billing address) on the Billing page ----
@@ -353,7 +371,8 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
     const o = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
     if (!o) return json({ error: "We couldn't find that order." }, 404);
-    const bill = billFor(o);
+    const buyMsgs = (body.buy || new URL(req.url).searchParams.get("buy")) === "msgs";
+    const bill = buyMsgs ? { due: "msgs", amount: MSG_PRICE, label: `${MSG_BLOCK} more messages`, paid: o.paid_total || 0, left: Math.max(0, (o.price || 0) - (o.paid_total || 0)) } : billFor(o);
     if (path === "/api/billing") {
       return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, stripe: env.STRIPE_PUBLISHABLE_KEY || "", pay_link: o.pay_link || "", email: u.email, name: u.name });
     }
@@ -377,6 +396,13 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     }
     const paid = pi.amount_received / 100;
     const now = new Date().toISOString();
+    if (bill.due === "msgs") {
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, "msgs", now),
+        db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, 0) + ? WHERE id = ?").bind(MSG_BLOCK, o.id),
+      ]);
+      return json({ ok: true, messages: MSG_BLOCK });
+    }
     const total = (o.paid_total || 0) + paid;
     const left = Math.max(0, (o.price || 0) - total);
     const next = bill.due === "deposit" ? "building" : left > 0 ? "awaiting payment" : "complete";
@@ -462,17 +488,21 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   if (path === "/api/messages") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
-    const o = await db.prepare("SELECT id, kind FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
+    const o = await db.prepare("SELECT id, kind, status, msg_credits FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
     if (!o) return json({ error: "We couldn't find that order." }, 404);
+    const sent = async () => (await db.prepare("SELECT COUNT(*) AS n FROM messages WHERE order_id = ? AND sender = 'customer'").bind(id).first()).n || 0;
     if (req.method === "POST") {
       const text = clip(String(body.text || "").trim(), 2000);
       if (!text) return json({ error: "Type a message." }, 400);
+      if ((o.msg_credits ?? FREE_MSGS) <= 0) return json({ error: `You've used your messages. Get ${MSG_BLOCK} more for $${MSG_PRICE}.`, needMessages: true }, 402);
       if (!(await allow("msg:" + u.id, 20, 3600))) return json({ error: "You've sent a lot of messages. Please wait a bit." }, 429);
       await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'customer', ?, ?)").bind(id, text, new Date().toISOString()).run();
+      await db.prepare("UPDATE orders SET msg_credits = MAX(0, COALESCE(msg_credits, ?) - 1) WHERE id = ?").bind(FREE_MSGS, id).run();
       await mail(env, env.OWNER_EMAIL, `New message on ${id} from ${u.name}`, `${u.name} (${u.email}) wrote about ${o.kind || id}:\n\n${text}\n\nReply on the admin page: ${SITE}/admin.html`);
     }
     const r = await db.prepare("SELECT sender, text, at FROM messages WHERE order_id = ? ORDER BY id LIMIT 300").bind(id).all();
-    return json({ messages: r.results || [] });
+    const left = (await db.prepare("SELECT msg_credits FROM orders WHERE id = ?").bind(id).first()).msg_credits ?? FREE_MSGS;
+    return json({ messages: r.results || [], sent: await sent(), left, block: MSG_BLOCK, price: MSG_PRICE });
   }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
@@ -482,7 +512,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
     for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
     return json({ orders });
@@ -502,11 +532,18 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       const r = await db.prepare("SELECT * FROM reviews ORDER BY at DESC LIMIT 200").all();
       return json({ reviews: r.results || [] });
     }
+    if (path === "/api/admin/give-messages" && req.method === "POST") {
+      const give = [1, MSG_BLOCK].includes(+body.n) ? +body.n : MSG_BLOCK;
+      await db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, 0) + ? WHERE id = ?").bind(give, clip(body.id, 20)).run();
+      return json({ ok: true });
+    }
     if (path === "/api/admin/messages") {
       const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
       if (req.method === "POST" && String(body.text || "").trim()) {
         const text = clip(String(body.text).trim(), 2000);
         await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'owner', ?, ?)").bind(id, text, new Date().toISOString()).run();
+        // When the owner writes (like a question), the customer gets one free message to answer.
+        await db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, 0) + 1 WHERE id = ?").bind(id).run();
         const o = await db.prepare("SELECT email, name, kind FROM orders WHERE id = ?").bind(id).first();
         if (o) await mail(env, o.email, `New message about your website`, `Hi ${o.name || "there"},\n\nWe sent you a message about ${o.kind || id}:\n\n${text}\n\nReply on your account page: ${SITE}/account.html`);
       }

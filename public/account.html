@@ -87,8 +87,11 @@
       <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished. You get your website as a ZIP file with instructions. You set up your own domain, hosting, and a payment provider (like Stripe or PayPal) if your website takes payments; we show you how.</p>
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
+        <label>Add-ons <span class="muted" style="font-weight:500">(optional)</span></label><div class="addons" id="addons"></div>
+        <label>Anything else you'd like?</label><textarea id="wish" maxlength="1500" style="min-height:80px" placeholder="Other extras, special features, questions… If it costs more, we'll tell you the price before you pay."></textarea>
+        <p class="total" id="total"></p>
         <label>What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
-        <label>Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like…"></textarea>
+        <label>Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like… Describe everything here: after you order you get 5 free messages, then 10 more cost $1."></textarea>
         <div class="row"><div style="flex:1;min-width:200px"><label>When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label>Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
         <p class="muted" style="font-size:13px;margin-top:12px">Sending a request means you agree to our <a href="/legal.html#terms" target="_blank">Terms</a>, including that we are <a href="/legal.html#liability" target="_blank">not liable</a> for losses from your website.</p>
         <button class="btn" style="margin-top:12px">Send my request</button>
@@ -103,7 +106,7 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
-let mode = "login", PKG = {};
+let mode = "login", PKG = {}, ADDONS = {};
 const want = new URLSearchParams(location.search).get("package");
 function show(id) { for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
 function setMode(m) {
@@ -156,14 +159,14 @@ function orderCard(o) {
   const pay = !due ? (o.status === "in review" ? '<p class="muted">We&rsquo;re looking at your request. We&rsquo;ll email you when we accept it.</p>' : "")
     : `<div class="paybox"><div><b>${due === "deposit" ? "Pay your starting fee" : "Your website is finished! Pay the rest"}</b><span class="muted">${due === "deposit" ? "$5 to start building (it comes off your price)" : "$" + left.toFixed(0) + " left to pay"}</span></div><a class="btn" href="/billing.html?id=${encodeURIComponent(o.id)}">${due === "deposit" ? "Pay $5 →" : "Go to billing →"}</a></div>`;
   return `<div class="order">
-    <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : esc(o.package) + (o.price ? " · $" + o.price : "")}</span></div><span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
+    <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : esc(o.package) + (o.price ? " · $" + o.price : "")}</span></div>${o.addons ? `<span class="muted" style="display:block;font-size:13px;margin:-6px 0 6px">+ ${o.addons.split(",").map((a) => esc((ADDONS[a] || {}).name || a)).join(", ")}</span>` : ""}<span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
     ${o.status === "cancelled" ? `<div class="declined"><b>This request was declined.</b><p class="muted">Sorry, we couldn't take this one on. You weren't charged. You can send a new request any time.</p><button class="btn ghost" onclick="removeOrder('${esc(o.id)}')">Remove</button></div>` : `<div class="steps">`}${o.status === "cancelled" ? "" : `${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview →</a>` : ""}</p>`}
     ${pay}
     ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>🎉 Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
     ${o.status === "complete" ? `<details class="msgs rev"><summary>⭐ Leave a review</summary><form class="revform" onsubmit="sendReview(event, '${esc(o.id)}')"><div class="stars" data-v="5">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="on">★</button>`).join("")}</div><textarea maxlength="600" required placeholder="How was it working with us? What do you think of your website?"></textarea><button class="btn">Send review</button><p class="muted" style="font-size:13px">We may show it on our homepage with your first name.</p></form></details>` : ""}
     ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
-    ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>💬 Messages with us</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
+    ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>💬 Messages with us</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><p class="muted mnote" id="mn-${esc(o.id)}"></p><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -208,21 +211,28 @@ $("delBtn").onclick = async () => {
   if (!r.ok) { $("acctErr").textContent = r.error || "Something went wrong."; return; }
   location.href = "/";
 };
-function drawMsgs(id, list) {
+function drawMsgs(id, list, info) {
   const el = document.getElementById("ml-" + id); if (!el) return;
+  const note = document.getElementById("mn-" + id);
+  if (note && info && info.left != null) {
+    note.innerHTML = info.left > 0
+      ? `${info.left} message${info.left > 1 ? "s" : ""} left. Put everything in one message when you can. When they run out, you can get ${info.block} more for $${info.price}.`
+      : `You've used your messages. <a class="btn" style="padding:7px 14px;margin-left:6px" href="/billing.html?id=${encodeURIComponent(id)}&buy=msgs">Get ${info.block} more for $${info.price}</a>`;
+    const f = el.parentElement.querySelector(".mform input"); if (f) { f.disabled = info.left <= 0; f.placeholder = info.left > 0 ? "Ask a question or request a change…" : "Get more messages to keep chatting"; }
+  }
   el.innerHTML = list.length ? list.map((m) => `<div class="m ${m.sender === "owner" ? "them" : "me"}"><span>${esc(m.text)}</span><small>${m.sender === "owner" ? "Nebulux Sites" : "You"} · ${new Date(m.at).toLocaleString()}</small></div>`).join("") : '<p class="muted">No messages yet. Ask us anything about your website.</p>';
   el.scrollTop = el.scrollHeight;
 }
 document.addEventListener("toggle", async (e) => {
   const d = e.target; if (!d.classList || !d.classList.contains("msgs") || !d.open) return;
   const r = await fetch("/api/messages?id=" + encodeURIComponent(d.dataset.mid)).then((x) => x.json()).catch(() => ({}));
-  drawMsgs(d.dataset.mid, r.messages || []);
+  drawMsgs(d.dataset.mid, r.messages || [], r);
 }, true);
 async function sendMsg(e, id) {
   e.preventDefault(); const inp = e.target.querySelector("input"), text = inp.value.trim(); if (!text) return;
   inp.disabled = true; const r = await post("/api/messages", { id, text }); inp.disabled = false;
-  if (!r.ok) return alert(r.error || "Couldn't send that.");
-  inp.value = ""; drawMsgs(id, r.messages || []);
+  if (!r.ok) { if (r.needMessages) { const x = await fetch("/api/messages?id=" + encodeURIComponent(id)).then((y) => y.json()); drawMsgs(id, x.messages || [], x); return; } return alert(r.error || "Couldn't send that."); }
+  inp.value = ""; drawMsgs(id, r.messages || [], r);
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".stars button"); if (!b) return;
@@ -251,13 +261,13 @@ async function loadOrders() {
 $("orderForm").onsubmit = async (e) => {
   e.preventDefault(); $("orderErr").textContent = ""; $("orderOk").textContent = "";
   const pk = document.querySelector('input[name="pkg"]:checked');
-  const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value });
+  const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value, addons: [...document.querySelectorAll('input[name="addon"]:checked')].map((x) => x.value), wish: $("wish").value });
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
   $("orderOk").textContent = `Thanks! Your order ${r.id} is in. We'll email you when we accept it.`;
   $("orderForm").reset(); await loadOrders(); view("dash");
 };
 async function start() {
-  const [{ user }, { packages }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
+  const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
   PKG = packages;
   if (!user) { $("nav").innerHTML = '<a href="/">Home</a>'; setMode(want ? "signup" : "login"); show("auth");
     if (cq) { $("email").value = cq; $("codeEmail").textContent = cq; show("code"); $("codeIn").focus(); }
@@ -269,6 +279,14 @@ async function start() {
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
   // Signed in: the logo opens the dashboard, not the home page.
   const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
+  ADDONS = addons || {};
+  $("addons").innerHTML = Object.entries(ADDONS).map(([id, a]) => `<label class="addon"><input type="checkbox" name="addon" value="${id}"><div><b>${esc(a.name)} <span>+$${a.price}</span></b><small>${esc(a.blurb)}</small></div></label>`).join("");
+  const sumUp = () => {
+    const pk = document.querySelector('input[name="pkg"]:checked'), p = pk ? PKG[pk.value] : null; if (!p) return;
+    const extra = [...document.querySelectorAll('input[name="addon"]:checked')].reduce((n, x) => n + ADDONS[x.value].price, 0);
+    $("total").innerHTML = `Total: <b>$${p.price + extra}</b> ${extra ? `<span class="muted">($${p.price} website + $${extra} add-ons)</span>` : ""}<br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
+  };
+  $("orderForm").addEventListener("change", sumUp); sumUp();
   show("app"); await loadOrders(); setInterval(loadOrders, 60000);
   const hv = location.hash.slice(1); view(["dash", "prev", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }

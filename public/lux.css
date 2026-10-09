@@ -43,3 +43,9 @@ details.msgs summary,details.amsg summary{font-weight:700;cursor:pointer}
 .stars{display:flex;gap:4px;margin:10px 0}.stars button{border:0;background:none;font-size:28px;line-height:1;color:rgba(255,255,255,.2);cursor:pointer;padding:0}.stars button.on{color:#facc15}
 .revform textarea{min-height:90px;margin-bottom:10px}
 details.msgs{max-width:none;margin:16px 0 0}
+.addons{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.addon{display:flex;gap:12px;align-items:flex-start;margin:0;padding:14px;border-radius:16px;border:1px solid var(--line);cursor:pointer;transition:border-color .2s,background .2s}
+.addon input{width:auto;margin-top:3px;accent-color:#d16cf5}.addon b{display:block;font-size:15px}.addon b span{color:#86efac;font-weight:800}.addon small{color:var(--muted);font-size:13px;line-height:1.45}
+.addon:has(input:checked){border-color:#d16cf5;background:rgba(209,108,245,.1)}
+.total{margin-top:16px;font-size:17px}.total b{font-size:22px}
+.mnote{font-size:13px;margin:-4px 0 10px}

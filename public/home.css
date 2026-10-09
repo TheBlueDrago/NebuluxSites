@@ -199,3 +199,6 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
 .rev{margin:0;padding:26px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line2)}
 .rstars{color:#facc15;font-size:18px;letter-spacing:2px}.rstars span{color:rgba(255,255,255,.18)}
 .rev blockquote{margin:12px 0 16px;font-size:17px;line-height:1.6;color:#ece8ff}.rev figcaption{color:var(--soft);font-size:14px}.rev figcaption b{color:#fff}
+.addonbar{margin-top:22px;padding:24px;border-radius:24px;border:1px solid var(--line2);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));text-align:center}
+.addonbar h3{font-family:"Sora",sans-serif;font-size:22px}.addonbar p{color:var(--soft);margin:4px 0 14px}
+.addonbar div{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}.addonbar span{padding:9px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);font-size:15px;cursor:help}.addonbar b{color:#86efac}

@@ -99,6 +99,7 @@
 
   <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p></div>
   <section class="plans" id="plans"></section>
+  <div class="addonbar rv" id="addonbar"></div>
   <p class="muted rv" style="text-align:center;margin-top:22px;font-size:14px">Every plan: free to request · $5 starting fee (comes off your price) · you set up your own domain, hosting and payment provider (we show you how) · *build times are estimates</p>
 
   <div class="sh rv" id="faq"><span class="eyebrow">FAQ</span><h2>Questions? Answers.</h2><p>Still curious? Press <b>Help</b> and ask Nebula, our AI agent.</p></div>
@@ -197,7 +198,8 @@ const FEAT = {
   monthly3: ["Faster priority: about 2–3 weeks", "Live preview while we build", "Changes until you love it", "Your website as a ZIP + setup steps"],
   monthly5: ["Standard priority: about 1 month", "Live preview while we build", "Changes until you love it", "Your website as a ZIP + setup steps"],
 };
-fetch("/api/packages").then((r) => r.json()).then(({ packages }) => {
+fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
+  if (addons) document.getElementById("addonbar").innerHTML = `<h3>Add-ons</h3><p>Add any of these to your plan when you order.</p><div>${Object.values(addons).map((a) => `<span title="${a.blurb.replace(/"/g, "&quot;")}">${a.name} <b>+$${a.price}</b></span>`).join("")}</div>`;
   const order = ["monthly5", "monthly3", "onetime"].filter((k) => packages[k]);
   document.getElementById("plans").innerHTML = order.map((id, i) => {
     const p = packages[id], best = id === "onetime", per = p.label.includes("/month");
