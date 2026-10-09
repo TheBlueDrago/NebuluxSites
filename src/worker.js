@@ -100,6 +100,32 @@ async function api(req, env, path) {
   const db = env.DB;
   if (path === "/api/packages") return json({ packages: PACKAGES });
 
+  // ---- Continue with Google (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET secrets) ----
+  if (path === "/api/google") {
+    const origin = new URL(req.url).origin;
+    if (!env.GOOGLE_CLIENT_ID) return Response.redirect(origin + "/account.html?google=off", 302);
+    const state = randomHex(16), g = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    for (const [k, v] of Object.entries({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: origin + "/api/google/callback", response_type: "code", scope: "openid email profile", state, prompt: "select_account" })) g.searchParams.set(k, v);
+    return new Response(null, { status: 302, headers: { location: g.toString(), "set-cookie": setCookie("ns_gstate", state, 1) } });
+  }
+  if (path === "/api/google/callback") {
+    const u = new URL(req.url), origin = u.origin, bad = Response.redirect(origin + "/account.html?google=fail", 302);
+    const code = u.searchParams.get("code"), state = u.searchParams.get("state");
+    if (!code || !state || !(await sameText(state, cookie(req, "ns_gstate") || ""))) return bad;
+    const tok = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET || "", redirect_uri: origin + "/api/google/callback", grant_type: "authorization_code" }) }).then((r) => r.json()).catch(() => ({}));
+    if (!tok.access_token) return bad;
+    const info = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { authorization: "Bearer " + tok.access_token } }).then((r) => r.json()).catch(() => ({}));
+    if (!info.email || !info.email_verified) return bad;
+    const email = String(info.email).toLowerCase();
+    let user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at) VALUES (?, ?, ?, '', '', 1, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString()).run(); }
+    else await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(user.id).run();
+    const res = await startSession(env, user.id, true), h = new Headers(res.headers);
+    h.set("location", origin + "/account.html"); h.append("set-cookie", setCookie("ns_gstate", "", 0));
+    return new Response(null, { status: 302, headers: h });
+  }
+
   // ---- accounts ----
   if (path === "/api/signup" && req.method === "POST") {
     if (!(await allow("signup:" + ip, 10, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
@@ -119,6 +145,7 @@ async function api(req, env, path) {
     const email = cleanEmail(body.email);
     if (!(await allow("login:" + ip, 30, 900)) || !(await allow("login:" + email, 10, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
     const u = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+    if (u && !u.pw_hash) return json({ error: "This account uses Google. Press Continue with Google." }, 400);
     if (!u || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) return json({ error: "Wrong email or password." }, 401);
     // a device that ticked "Remember me" skips the code
     if (u.verified && (await trustedFor(env, req, u.id))) return startSession(env, u.id, true);
