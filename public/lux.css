@@ -56,3 +56,33 @@ details.msgs{max-width:none;margin:16px 0 0}
 .uplist li > div:first-child{display:flex;flex-direction:column;min-width:0}.uplist li > div:last-child{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .browser.big{overflow:auto;-webkit-overflow-scrolling:touch}.browser.big iframe{touch-action:auto}
 @media (max-width:860px){.browser.big iframe{height:70vh;min-height:420px}}
+
+/* dashboard polish */
+.dmain{position:relative}
+.dmain::before{content:"";position:absolute;inset:-80px -40px auto auto;width:520px;height:420px;background:radial-gradient(closest-side,rgba(209,108,245,.22),transparent),radial-gradient(closest-side at 30% 60%,rgba(107,91,255,.25),transparent);filter:blur(30px);pointer-events:none;z-index:-1;animation:dglow 9s ease-in-out infinite alternate}
+@keyframes dglow{to{transform:translate(-60px,40px) scale(1.15)}}
+.dmain>div{animation:dfade .45s ease both}@keyframes dfade{from{opacity:0;transform:translateY(10px)}}
+.dhero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:24px;padding:26px 28px;border-radius:26px;border:1px solid var(--line);background:linear-gradient(120deg,rgba(107,91,255,.22),rgba(209,108,245,.12) 55%,rgba(255,255,255,.02));box-shadow:0 30px 80px -40px rgba(110,70,255,.7),inset 0 1px 0 rgba(255,255,255,.08);overflow:hidden;position:relative}
+.dhero::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.07) 50%,transparent 70%);transform:translateX(-100%);animation:dshine 6s ease-in-out infinite;pointer-events:none}
+@keyframes dshine{60%,100%{transform:translateX(100%)}}
+.dkick{margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:linear-gradient(90deg,var(--accent2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.dhcta{display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1}
+.tiles{gap:16px}.tile{position:relative;overflow:hidden;border-radius:22px!important;transition:transform .25s,box-shadow .25s}
+.tile:hover{transform:translateY(-4px);box-shadow:0 30px 60px -30px rgba(209,108,245,.7)}
+.tile b{background:linear-gradient(90deg,#fff,#d9c8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.order{position:relative;border-radius:26px;overflow:hidden;transition:transform .25s,box-shadow .25s}
+.order::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--accent2),var(--accent),#ffb3e6)}
+.order:hover{box-shadow:0 40px 90px -40px rgba(209,108,245,.75)}
+.bar{height:12px;box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}.bar div{position:relative;box-shadow:0 0 18px rgba(209,108,245,.8);background-size:200% 100%;background-image:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent2));animation:dbar 3s linear infinite}
+@keyframes dbar{to{background-position:-200% 0}}
+.paybox{border-radius:18px;background:linear-gradient(100deg,rgba(107,91,255,.25),rgba(209,108,245,.15));border:1px solid rgba(209,108,245,.4)}
+.dempty{text-align:center;padding:48px 24px;border-radius:28px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015))}
+.dempty h2{margin:14px 0 6px;font-size:30px}
+.dorb{width:84px;height:84px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff,var(--accent) 35%,var(--accent2) 75%);box-shadow:0 0 60px rgba(209,108,245,.7);animation:dorb 3s ease-in-out infinite}
+@keyframes dorb{50%{transform:translateY(-8px) scale(1.05)}}
+.dhow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:26px;text-align:left}
+.dhow div{padding:16px;border-radius:18px;background:rgba(0,0,0,.25);border:1px solid var(--line)}
+.dhow i{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;font-style:normal;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:10px}
+.dhow b{display:block}.dhow span{font-size:13px;color:var(--muted)}
+@media (max-width:860px){.dhow{grid-template-columns:1fr 1fr}.dhero{padding:20px}}
+@media (prefers-reduced-motion:reduce){.dmain::before,.dhero::after,.bar div,.dorb,.dmain>div{animation:none}}
