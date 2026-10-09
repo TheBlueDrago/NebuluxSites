@@ -116,3 +116,5 @@ details.msgs{max-width:none;margin:16px 0 0}
 }
 @media (max-width:640px){#app .dside{z-index:200!important}#app .dmain{position:relative;z-index:1;isolation:isolate}}
 @media (max-width:640px){body:has(#app .dside) #helpBtn{bottom:104px!important;width:44px;height:44px}}
+@media (max-width:640px){#app.fade-in{animation:none!important;transform:none!important}}
+@media (max-width:640px){#app .dside{bottom:calc(10px + env(safe-area-inset-bottom))!important}}
