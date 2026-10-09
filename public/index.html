@@ -46,6 +46,32 @@
     <div class="card"><div class="step">3</div><h3>We build it, you pay the rest</h3><p>When it's finished we email you. Pay the rest and it's yours. Watch the progress bar and a live preview of your site on your account page, and ask for changes until you love it.</p></div>
   </div>
 
+  <section class="split reveal">
+    <div>
+      <span class="eyebrow">Your account</span>
+      <h2 class="left">Watch your website being built</h2>
+      <p class="muted">No waiting in the dark. Your account page shows every step, a progress bar, a live preview of your site and updates from us, so you always know where it's at.</p>
+      <ul class="checks"><li>Email when we accept your request</li><li>Live preview while we build</li><li>Email the moment it's finished</li></ul>
+    </div>
+    <div class="order demo-order">
+      <div class="order-top"><div><span class="muted">NS-7F3A · Bakery</span><h3>Golden Batch</h3><span class="muted">$199 one time · Top priority</span></div><span class="tag t-building">building</span></div>
+      <div class="steps"><div class="done"><i>✓</i><span>Request sent</span></div><div class="done"><i>✓</i><span>Accepted</span></div><div class="now"><i>3</i><span>Building</span></div><div><i>4</i><span>Finished</span></div><div><i>5</i><span>Complete</span></div></div>
+      <div class="bar"><div style="width:68%"></div></div><p class="muted" style="margin-top:6px">68% done</p>
+      <ul class="tl" style="margin-top:14px"><li><span class="muted">Today</span><br>Menu page and cart are done. Working on checkout!</li></ul>
+    </div>
+  </section>
+
+  <span class="eyebrow center">Why us</span>
+  <h2 style="margin-top:8px">Better than doing it yourself</h2>
+  <div class="compare reveal">
+    <div class="crow head"><span></span><b>Nebulux Sites</b><b>DIY builders</b><b>Big agencies</b></div>
+    <div class="crow"><span>Built for you</span><i class="y">✓</i><i class="n">✕</i><i class="y">✓</i></div>
+    <div class="crow"><span>Price</span><i class="y">From $199</i><i class="m">Your time + monthly fees</i><i class="n">$2,000+</i></div>
+    <div class="crow"><span>Live progress + preview</span><i class="y">✓</i><i class="n">✕</i><i class="m">Sometimes</i></div>
+    <div class="crow"><span>Pay as you go</span><i class="y">$5 to start</i><i class="m">—</i><i class="n">Big deposit</i></div>
+    <div class="crow"><span>Ready in</span><i class="y">Days</i><i class="m">Weeks of your time</i><i class="n">Months</i></div>
+  </div>
+
   <h2 id="pricing">Simple pricing</h2><p class="sub">Pay all at once or month by month. No surprises.</p>
   <div class="grid" id="prices"></div>
 
@@ -68,7 +94,7 @@
     <a class="btn" href="/account.html">Get started</a>
   </section>
 </main>
-<footer>© Nebulux Sites · Made by the team behind <a href="https://nebuluxai.com">Nebulux AI</a></footer>
+<footer><div class="fgrid"><div><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><p class="muted" style="margin-top:8px;max-width:280px">Done-for-you websites from the team behind Nebulux AI.</p></div><div><b>Product</b><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#examples">Examples</a></div><div><b>Account</b><a href="/account.html">Log in</a><a href="/account.html?package=onetime">Start a website</a></div><div><b>More</b><a href="https://nebuluxai.com">Nebulux AI</a><a href="#faq">FAQ</a></div></div><p class="muted" style="margin-top:30px">© 2026 Nebulux Sites</p></footer>
 <script>
 fetch("/api/packages").then((r) => r.json()).then(({ packages }) => {
   document.getElementById("prices").innerHTML = Object.entries(packages).map(([id, p]) =>
