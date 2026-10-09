@@ -32,6 +32,18 @@ function done(r) {
   $("card").innerHTML = `<div class="done"><div class="big">🎉</div><h2 style="margin:6px 0">Payment received!</h2><p class="muted">${r.status === "building" ? "Thank you! We're starting on your website now. Watch it come together on your account page." : r.left > 0 ? `Thank you! ${money(r.left)} is left to pay.` : "Thank you! Your website is fully paid. Download it from your account page."}</p><a class="btn" style="margin-top:18px" href="/account.html">Go to my account</a></div>`;
 }
 async function start() {
+  // No order picked (the Billing button on the dashboard): an overview of every order.
+  if (!id && !buy) {
+    const o = await fetch("/api/orders").then(async (x) => ({ ok: x.ok, status: x.status, ...(await x.json().catch(() => ({}))) }));
+    if (o.status === 401) { location.href = "/account.html"; return; }
+    const list = (o.orders || []).filter((x) => x.status !== "cancelled");
+    const paid = list.reduce((n, x) => n + (x.paid_total || 0), 0);
+    const due = (x) => x.status === "awaiting deposit" ? 5 : x.status === "awaiting payment" ? Math.max(0, (x.price || 0) - (x.paid_total || 0)) : 0;
+    $("card").innerHTML = `<h2 style="margin:0 0 4px;text-align:left">Billing</h2><p class="muted" style="margin:0 0 16px">Everything you've paid, and anything that's due.</p>
+      <div class="lines"><div><span>Paid so far</span><b>${money(paid)}</b></div><div><span>Due now</span><b>${money(list.reduce((n, x) => n + due(x), 0))}</b></div></div>
+      ${list.length ? list.map((x) => `<div class="lines" style="margin-top:12px"><div><span><b>${esc(x.kind || "Your website")}</b><br><small class="muted">${esc(x.id)} · ${esc(x.status)}</small></span><b>${money(x.paid_total)} / ${money(x.price)}</b></div>${due(x) ? `<a class="btn" style="width:100%;margin-top:10px;text-align:center" href="/billing.html?id=${encodeURIComponent(x.id)}">Pay ${money(due(x))} →</a>` : ""}</div>`).join("") : '<p class="muted" style="margin-top:14px">No orders yet. <a href="/account.html#req">Request a website</a>.</p>'}`;
+    return;
+  }
   const r = await fetch("/api/billing?id=" + encodeURIComponent(id) + (buy ? "&buy=" + encodeURIComponent(buy) : "")).then(async (x) => ({ ok: x.ok, status: x.status, ...(await x.json().catch(() => ({}))) }));
   if (r.status === 401) { location.href = "/account.html"; return; }
   if (!r.ok) { $("card").innerHTML = `<h2 style="margin:0 0 8px;text-align:left">Billing</h2><p class="err">${esc(r.error || "Something went wrong.")}</p>`; return; }
