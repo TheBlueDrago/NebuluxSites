@@ -9,6 +9,7 @@
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><nav id="nav"></nav></header>
 <main>
   <!-- log in / sign up -->
+  <div id="boot" class="boot"><div class="dorb"></div><p class="muted">Loading your account…</p></div>
   <div class="box" id="auth" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left" id="authTitle">Log in</h2>
     <p class="muted" id="authSub">Log in to order a website. We'll email you a code to confirm it's you.</p>
@@ -113,7 +114,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
 let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30, FIRST_ENDS = 0;
 const want = new URLSearchParams(location.search).get("package");
-function show(id) { for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
+function show(id) { const b = document.getElementById("boot"); if (b) b.remove(); for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
 function setMode(m) {
   mode = m; const up = m === "signup";
   $("authTitle").textContent = up ? "Create your account" : "Log in";
