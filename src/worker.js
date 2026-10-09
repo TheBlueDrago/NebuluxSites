@@ -191,6 +191,10 @@ async function api(req, env, path) {
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
       .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, clip(body.pages, 300), clip(body.deadline, 40), clip(body.links, 600), "awaiting deposit", now, now).run();
+    if (env.AIDB) await env.AIDB.batch([
+      env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT)"),
+      env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
+    ]).catch(() => {});
     if (env.RESEND_API_KEY && env.OWNER_EMAIL) {
       fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
         body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [env.OWNER_EMAIL], subject: `New order ${id}: ${pkg.name}`, text: `${u.name} (${u.email}) ordered ${pkg.name}.\n\n${details}\n\nOpen the admin page and send them the $5 request payment link.` }) }).catch(() => {});

@@ -20,3 +20,9 @@ database_id = "f4701b31-d88d-4ab0-8074-8c7c57ede56b"
 
 [observability]
 enabled = true
+
+# Nebulux AI's database: new orders are copied here so they show on the Nebulux AI Monitor.
+[[d1_databases]]
+binding = "AIDB"
+database_name = "nebulux-db"
+database_id = "98651468-6280-498a-8641-b24d1725e6f9"
