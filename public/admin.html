@@ -9,6 +9,12 @@
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="promos" style="display:none">
+    <h2 style="margin:0 0 6px;text-align:left">Promo codes</h2>
+    <p class="muted">A percentage off a website's price. Customers type it on the Billing page (one code per order).</p>
+    <div class="row" style="margin-top:10px"><input id="pcode" placeholder="CODE" maxlength="24" style="width:150px;text-transform:uppercase"><input id="ppct" type="number" min="1" max="90" placeholder="% off" style="width:100px"><input id="pmax" type="number" min="0" placeholder="Max uses (0 = no limit)" style="width:200px"><input id="pdays" type="number" min="0" placeholder="Days it works (0 = forever)" style="width:210px"><button class="btn" id="padd">Add code</button></div>
+    <p class="err" id="perr"></p><div id="plist"></div>
+  </div>
   <div class="box wide" id="list" style="display:none"></div>
 </main>
 <script>
@@ -19,7 +25,7 @@ const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers:
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = "";
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos();
   $("list").innerHTML = `<h2 style="margin:0 0 12px;text-align:left">Orders (${r.orders.length})</h2>` + (r.orders.map((o) => `
     <div class="card" style="margin-bottom:12px">
       <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
@@ -51,6 +57,15 @@ async function load() {
     document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
   }));
 }
+async function promos(body) {
+  const r = await call("/api/admin/promos", body);
+  if (!r.ok) { $("perr").textContent = r.error || ""; return; }
+  $("perr").textContent = ""; $("promos").style.display = "";
+  $("plist").innerHTML = r.promos.length ? `<table><tr><th>Code</th><th>Off</th><th>Used</th><th>Ends</th><th></th></tr>${r.promos.map((p) => `<tr><td><b>${esc(p.code)}</b>${p.active ? "" : ' <span class="tag">off</span>'}</td><td>${p.percent}%</td><td>${p.uses}${p.max_uses ? " / " + p.max_uses : ""}</td><td>${p.expires ? new Date(p.expires).toLocaleDateString() : "never"}</td><td><button class="btn ghost" data-pt="${esc(p.code)}">${p.active ? "Turn off" : "Turn on"}</button> <button class="btn ghost" data-pd="${esc(p.code)}">Delete</button></td></tr>`).join("")}</table>` : '<p class="muted">No codes yet.</p>';
+  document.querySelectorAll("[data-pt]").forEach((b) => (b.onclick = () => promos({ action: "toggle", code: b.dataset.pt })));
+  document.querySelectorAll("[data-pd]").forEach((b) => (b.onclick = () => confirm("Delete " + b.dataset.pd + "?") && promos({ action: "delete", code: b.dataset.pd })));
+}
+$("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };
 if (KEY) load();
 </script>

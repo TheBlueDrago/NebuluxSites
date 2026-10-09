@@ -43,13 +43,21 @@ async function start() {
     <p class="muted">${esc(o.kind || "Your website")}</p>
     <div class="amt">${money(r.amount)}</div><p class="muted">${esc(r.label)}${r.due === "deposit" ? " · comes off your price" : ""}</p>
     <div class="lines">
+      ${o.promo ? `<div><span>Price before code</span><b><s>${money(o.price_before)}</s></b></div><div><span>Promo ${esc(o.promo)}</span><b style="color:var(--ok)">-${money(o.price_before - o.price)}</b></div>` : ""}
       <div><span>Website price</span><b>${money(o.price)}</b></div>
       <div><span>Paid so far</span><b>${money(r.paid)}</b></div>
       <div><span>Paying now</span><b>${money(r.amount)}</b></div>
       <div><span>Left after this</span><b>${money(Math.max(0, r.left - r.amount))}</b></div>
     </div>
+    ${o.promo ? "" : `<form id="promoF" class="row" style="margin-top:4px"><input id="promoIn" placeholder="Promo code" maxlength="24" style="flex:1;min-width:140px;text-transform:uppercase"><button class="btn ghost">Apply</button></form><p class="muted" id="promoMsg" style="font-size:14px;margin-top:6px"></p>`}
     <div id="pp"></div><p class="err" id="err"></p>
     <div class="secure">🔒 Secure checkout with PayPal. Pay with your card or PayPal account. We never see your card details.</div>`;
+  if ($("promoF")) $("promoF").onsubmit = async (e) => {
+    e.preventDefault();
+    const c = await post("/api/promo", { id, code: $("promoIn").value });
+    if (!c.ok) { $("promoMsg").textContent = c.error || "That code isn't valid."; $("promoMsg").className = "err"; return; }
+    start();
+  };
   if (!r.paypal) {
     $("pp").innerHTML = r.pay_link ? `<a class="btn" style="width:100%" href="${esc(r.pay_link)}" target="_blank" rel="noopener noreferrer">Pay ${money(r.amount)}</a>` : `<p class="muted">Online payments are being set up. We'll email you as soon as you can pay here.</p>`;
     return;

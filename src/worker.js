@@ -78,10 +78,11 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, code_hash TEXT, expires INTEGER, tries INTEGER DEFAULT 0)"),
     db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -249,7 +250,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!o) return json({ error: "We couldn't find that order." }, 404);
     const bill = billFor(o);
     if (path === "/api/billing") {
-      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price }, ...bill, paypal: env.PAYPAL_CLIENT_ID || "", pay_link: o.pay_link || "" });
+      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, paypal: env.PAYPAL_CLIENT_ID || "", pay_link: o.pay_link || "" });
     }
     if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_SECRET) return json({ error: "Online payments aren't set up yet." }, 503);
     if (!bill.amount) return json({ error: "Nothing to pay right now." }, 400);
@@ -289,6 +290,26 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     return json({ ok: true, status: next, left });
   }
 
+  // ---- promo codes: a percentage off the website's price (like Nebulux AI's) ----
+  // One code per order, used before the website is fully paid. The $5 starting fee stays $5;
+  // the discount comes off the total, so the rest costs less.
+  if (path === "/api/promo" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (!(await allow("promo:" + u.id, 10, 3600))) return json({ error: "Too many tries. Please wait a bit." }, 429);
+    const o = await db.prepare("SELECT id, price, promo, paid_total, status FROM orders WHERE id = ? AND user_id = ?").bind(clip(body.id, 20), u.id).first();
+    if (!o) return json({ error: "We couldn't find that order." }, 404);
+    if (o.promo) return json({ error: "This order already has a promo code." }, 400);
+    if (!["in review", "awaiting deposit", "building", "awaiting payment"].includes(o.status)) return json({ error: "Promo codes can't be used on this order now." }, 400);
+    const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+    const p = code && (await db.prepare("SELECT * FROM promos WHERE code = ?").bind(code).first());
+    if (!p || !p.active || (p.max_uses && p.uses >= p.max_uses) || (p.expires && p.expires < Date.now())) return json({ error: "That code isn't valid." }, 400);
+    const price = Math.max(Math.ceil(o.paid_total || 0), 5, Math.round((o.price || 0) * (100 - p.percent) / 100));
+    const done = await db.prepare("UPDATE orders SET promo = ?, price_before = price, price = ?, updated_at = ? WHERE id = ? AND (promo IS NULL OR promo = '')").bind(code, price, new Date().toISOString(), o.id).run();
+    if (!done.meta || !done.meta.changes) return json({ error: "This order already has a promo code." }, 400);
+    await db.prepare("UPDATE promos SET uses = uses + 1 WHERE code = ?").bind(code).run();
+    return json({ ok: true, percent: p.percent, price });
+  }
+
   if (path === "/api/paid" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     if (!(await allow("paid:" + u.id, 10, 3600))) return json({ error: "Please wait a bit." }, 429);
@@ -319,6 +340,21 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/promos") {
+      if (req.method === "POST" && body.action === "create") {
+        const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+        const pct = Math.round(+body.percent);
+        if (code.length < 3) return json({ error: "Codes need at least 3 letters or numbers." }, 400);
+        if (!(pct >= 1 && pct <= 90)) return json({ error: "The discount has to be 1% to 90%." }, 400);
+        const days = Math.max(0, Math.min(3650, Math.round(+body.days || 0)));
+        await db.prepare("INSERT OR REPLACE INTO promos (code, percent, uses, max_uses, expires, active, created_at) VALUES (?, ?, 0, ?, ?, 1, ?)")
+          .bind(code, pct, Math.max(0, Math.round(+body.max_uses || 0)), days ? Date.now() + days * 86400000 : 0, new Date().toISOString()).run();
+      }
+      if (req.method === "POST" && body.action === "toggle") await db.prepare("UPDATE promos SET active = 1 - active WHERE code = ?").bind(clip(body.code, 24)).run();
+      if (req.method === "POST" && body.action === "delete") await db.prepare("DELETE FROM promos WHERE code = ?").bind(clip(body.code, 24)).run();
+      const r = await db.prepare("SELECT * FROM promos ORDER BY created_at DESC LIMIT 200").all();
+      return json({ promos: r.results || [] });
+    }
     if (path === "/api/admin/order" && req.method === "POST") {
       const status = STATUSES.includes(body.status) ? body.status : null;
       const link = String(body.pay_link || "").trim();
