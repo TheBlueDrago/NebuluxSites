@@ -254,3 +254,4 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
   .plans .plan{padding:20px 16px}
   .tryit{grid-template-columns:1fr!important}
 }
+.hx .rv{opacity:1;transform:none;animation:hxin .55s cubic-bezier(.2,.7,.2,1) both}.hx .rv.d1{animation-delay:.05s}.hx .rv.d2{animation-delay:.1s}.hx .rv.d3{animation-delay:.15s}@keyframes hxin{from{opacity:0;transform:translateY(16px)}}@media (prefers-reduced-motion:reduce){.hx .rv{animation:none}}
