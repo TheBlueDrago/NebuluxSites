@@ -131,3 +131,12 @@ details.msgs{max-width:none;margin:16px 0 0}
   #list .card input,#list .card select{max-width:100%}
 }
 @media (max-width:640px){.total{position:static!important;box-shadow:none}#reqBox{padding:20px 16px!important;margin:0!important}}
+/* iPad / tablets */
+@media (min-width:641px) and (max-width:1024px){
+  .tiles{grid-template-columns:repeat(3,1fr)!important;gap:12px}
+  .tile b{font-size:22px!important}
+  main:has(.dash){padding-left:14px!important;padding-right:14px!important}
+  .dash{grid-template-columns:84px 1fr!important;gap:18px!important}
+  .dside{border-radius:22px!important;border-left:1px solid var(--line)!important;padding:12px 6px!important}
+  .dhero{padding:22px}
+}

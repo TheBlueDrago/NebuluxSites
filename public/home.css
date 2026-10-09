@@ -244,3 +244,13 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
 }
 .swipehint{display:none}
 @media (max-width:640px){.swipehint{display:block;text-align:center;color:var(--muted);font-size:12.5px;margin:-6px 0 6px}}
+/* iPad / tablets: use the width */
+@media (min-width:641px) and (max-width:1024px){
+  .bento{grid-template-columns:1fr 1fr!important}
+  .bento>.b1{grid-column:1/-1}
+  .show{grid-template-columns:1fr 1fr!important}
+  .show>.feature{grid-column:1/-1}
+  .plans{grid-template-columns:repeat(3,1fr)!important;gap:10px}
+  .plans .plan{padding:20px 16px}
+  .tryit{grid-template-columns:1fr!important}
+}
