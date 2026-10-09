@@ -4,15 +4,39 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terms, User Agreement & Privacy · Nebulux Sites</title>
 <link rel="icon" href="/logo.png"><link rel="stylesheet" href="/style.css">
-<style>.legal{max-width:820px;margin:0 auto}.legal h2{text-align:left;font-size:28px;margin:56px 0 12px}.legal h3{margin:24px 0 6px}.legal p,.legal li{color:var(--muted);margin-bottom:10px}.legal ul{padding-left:22px}.legal b{color:var(--text)}.toc a{margin-right:16px}</style>
+<style>
+.lwrap{display:grid;grid-template-columns:230px 1fr;gap:36px;max-width:1080px;margin:0 auto;align-items:start}
+.side{position:sticky;top:90px;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.side b{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:4px 8px 6px}
+.side a{text-decoration:none;color:var(--muted);padding:9px 12px;border-radius:10px;font-weight:600;transition:.2s}.side a:hover,.side a.on{background:var(--card2);color:var(--text)}
+.lhero{text-align:center;padding:8vh 0 5vh}.lhero h1{font-size:clamp(36px,5vw,58px);font-weight:900;letter-spacing:-.03em}.lhero p{color:var(--muted);margin-top:10px}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:28px}
+.sum div{padding:16px;border-radius:16px;background:var(--card);border:1px solid var(--line)}.sum i{font-style:normal;font-size:22px}.sum b{display:block;margin:6px 0 2px}.sum span{color:var(--muted);font-size:14px}
+.doc{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:clamp(22px,4vw,40px);margin-bottom:24px;scroll-margin-top:90px}
+.doc>h2{text-align:left;font-size:30px;margin:0 0 6px;display:flex;align-items:center;gap:12px}
+.doc>h2 .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,var(--accent2),var(--accent))}
+.doc h3{font-size:18px;margin:26px 0 8px;padding-top:20px;border-top:1px solid var(--line)}
+.doc p,.doc li{color:var(--muted);margin-bottom:10px;line-height:1.75}.doc ul{padding-left:20px}.doc li::marker{color:var(--accent)}.doc b{color:var(--text)}
+.doc a{color:#f0abfc}
+.callout{border-left:4px solid var(--accent);background:rgba(209,108,245,.08);padding:16px 18px;border-radius:0 14px 14px 0;margin:12px 0}
+.callout p{margin-bottom:8px}.callout p:last-child{margin:0}
+@media (max-width:860px){.lwrap{grid-template-columns:1fr}.side{position:static;flex-direction:row;flex-wrap:wrap}.side b{width:100%}}
+</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><nav><a href="/">Home</a><a class="btn" href="/account.html">Get my website</a></nav></header>
-<main class="legal">
-  <section class="hero" style="padding-bottom:0"><h1 style="font-size:clamp(32px,5vw,52px)">Legal</h1><p>Last updated October 9, 2026</p></section>
-  <p class="toc"><a href="#terms">Terms of Service</a><a href="#agreement">User Agreement</a><a href="#privacy">Privacy Policy</a></p>
-
-  <h2 id="terms">Terms of Service</h2>
+<main>
+  <section class="lhero"><span class="eyebrow">Legal</span><h1>Terms & <span class="grad">Privacy</span></h1><p>Last updated October 9, 2026 · The short version first, the details below.</p></section>
+  <div class="lwrap">
+  <nav class="side"><b>On this page</b><a href="#terms">📜 Terms of Service</a><a href="#liability">⚖️ Not liable</a><a href="#agreement">🤝 User Agreement</a><a href="#privacy">🔒 Privacy Policy</a></nav>
+  <div>
+  <div class="sum">
+    <div><i>💳</i><b>$5 to start</b><span>Free to request. $5 when accepted, the rest when it's done.</span></div>
+    <div><i>⏱️</i><b>Times are estimates</b><span>1–2 weeks, 2–3 weeks or about 1 month by plan.</span></div>
+    <div><i>⚖️</i><b>Provided "as is"</b><span>We're not liable for losses from your website.</span></div>
+    <div><i>🔒</i><b>We don't sell your data</b><span>No ad trackers. Card details stay with the payment provider.</span></div>
+  </div>
+  <section class="doc" id="terms"><h2><span class="ic">📜</span>Terms of Service</h2>
   <p>These terms apply when you use Nebulux Sites ("we", "us"), including this website, your account and any website we build for you. By making an account or sending a request, you agree to them. If you don't agree, please don't use Nebulux Sites.</p>
   <h3>1. What we do</h3>
   <p>You tell us the website you want, and we may accept or decline your request for any reason. If we accept it, we build the website described in your request.</p>
@@ -34,17 +58,19 @@
   <p>You're responsible for the text, photos, logos and other content you give us. You confirm you have the right to use it, and that it isn't illegal, hateful, or someone else's work without permission. We can refuse or stop work on a website we think breaks these rules.</p>
   <h3>7. Hosting and domains</h3>
   <p>Unless we agree otherwise in writing, ongoing hosting, domain names and third-party services (like payment or email services) are your responsibility, and their prices and rules are set by those companies.</p>
-  <h3 id="liability">8. We are not liable</h3>
+  <h3 id="liability">8. We are not liable</h3><div class="callout">
   <p><b>Nebulux Sites and the websites we build are provided "as is" and "as available", without warranties of any kind</b>, including that they will be error-free, secure, always online, or fit for a particular purpose.</p>
   <p><b>To the fullest extent the law allows, we are not liable for any indirect, incidental, special or consequential damages, or for lost profits, sales, data, customers or business</b>, coming from your use of Nebulux Sites or of any website we build, including downtime, bugs, security problems, third-party services, or content you provide.</p>
   <p>If we are found liable for anything, our total liability is limited to the amount you paid us for the order in question. Some places don't allow some of these limits, so they may not all apply to you.</p>
   <p>You agree to cover us against claims caused by your content, your website's use, or your breaking these terms.</p>
+  </div>
   <h3>9. Ending</h3>
   <p>You can stop an order or delete your account at any time by contacting us (see the refund rules above). We can suspend or close accounts that break these terms.</p>
   <h3>10. Changes to these terms</h3>
   <p>We may update these terms. If the changes are important, we'll tell you by email or on the site. Using Nebulux Sites after a change means you accept the new terms.</p>
 
-  <h2 id="agreement">User Agreement</h2>
+  </section>
+  <section class="doc" id="agreement"><h2><span class="ic">🤝</span>User Agreement</h2>
   <p>When you make an account, you agree that:</p>
   <ul>
     <li>The information you give us is true, and you keep your password safe. You're responsible for what happens on your account.</li>
@@ -54,7 +80,8 @@
     <li>You agree to our Terms of Service and Privacy Policy on this page.</li>
   </ul>
 
-  <h2 id="privacy">Privacy Policy</h2>
+  </section>
+  <section class="doc" id="privacy"><h2><span class="ic">🔒</span>Privacy Policy</h2>
   <h3>What we collect</h3>
   <ul>
     <li><b>Account details:</b> your name, email, and a scrambled (hashed) version of your password. We never see or store your real password. If you sign in with Google, we get your name and email from Google.</li>
@@ -73,7 +100,14 @@
   <p>We use encryption (HTTPS), hashed passwords and email codes to protect your account, but no service can be 100% secure.</p>
   <h3>Contact</h3>
   <p>Questions or requests about these terms or your data? Email us at the address in your order emails, or through <a href="https://nebuluxai.com">Nebulux AI</a>.</p>
+</section>
+  </div></div>
 </main>
-<footer style="text-align:center">© Nebulux Sites · <a href="/">Home</a></footer>
+<footer style="text-align:center;margin-top:40px">© Nebulux Sites · <a href="/">Home</a></footer>
+<script>
+const links=[...document.querySelectorAll(".side a")];
+const io=new IntersectionObserver((es)=>es.forEach((e)=>{if(e.isIntersecting)links.forEach((l)=>l.classList.toggle("on",l.getAttribute("href")==="#"+e.target.id));}),{rootMargin:"-40% 0px -55% 0px"});
+document.querySelectorAll(".doc,[id=liability]").forEach((el)=>io.observe(el));
+</script>
 </body>
 </html>
