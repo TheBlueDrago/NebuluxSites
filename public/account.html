@@ -293,7 +293,7 @@ async function start() {
 }
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");
-if (gq) setTimeout(() => { $("authErr").textContent = gq === "many" ? "There are already 3 accounts from this internet connection. Log in to one of them instead." : gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
+if (gq) setTimeout(() => { $("authErr").textContent = gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
 start();
 </script>
 <script src="/help.js" defer></script>

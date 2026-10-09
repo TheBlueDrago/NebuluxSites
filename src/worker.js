@@ -169,14 +169,6 @@ async function startSession(env, userId, remember) {
   }
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
-// At most MAX_ACCOUNTS accounts per internet connection (the owner, with the owner cookie, is never limited).
-const MAX_ACCOUNTS = 3;
-const netOf = async (req) => (await sha("net:" + (req.headers.get("cf-connecting-ip") || ""))).slice(0, 32);
-async function tooManyAccounts(env, req) {
-  if (await isOwner(env, req)) return false;
-  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE signup_net = ? AND verified = 1").bind(await netOf(req)).first();
-  return (r && r.n) >= MAX_ACCOUNTS;
-}
 async function currentUser(env, req) {
   const t = cookie(req, "ns_session"); if (!t) return null;
   const s = await env.DB.prepare("SELECT user_id, expires FROM sessions WHERE token_hash = ?").bind(await sha(t)).first();
@@ -230,8 +222,7 @@ async function api(req, env, path) {
     if (!info.email || !info.email_verified) return bad;
     const email = String(info.email).toLowerCase();
     let user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
-    if (!user && (await tooManyAccounts(env, req))) return Response.redirect(origin + "/account.html?google=many", 302);
-    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, '', '', 1, ?, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString(), await netOf(req)).run(); }
+    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, '', '', 1, ?, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString(), "").run(); }
     else await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(user.id).run();
     if (!(await trustedFor(env, req, user.id))) {
       await sendCode(env, email);
@@ -250,11 +241,10 @@ async function api(req, env, path) {
     if (pw.length < 8) return json({ error: "Use at least 8 characters for your password." }, 400);
     if (!name) return json({ error: "Tell us your name." }, 400);
     const existing = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
-    if (!existing && (await tooManyAccounts(env, req))) return json({ error: "There are already 3 accounts from this internet connection. Log in to one of them instead." }, 403);
     if (existing && existing.verified) return json({ error: "There's already an account with this email. Log in instead." }, 400);
     const salt = randomHex(16), hash = await hashPassword(pw, salt);
     if (existing) await db.prepare("UPDATE users SET name = ?, pw_hash = ?, pw_salt = ? WHERE id = ?").bind(name, hash, salt, existing.id).run();
-    else await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, ?, ?, 0, ?, ?)").bind(randomHex(12), email, name, hash, salt, new Date().toISOString(), await netOf(req)).run();
+    else await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, ?, ?, 0, ?, ?)").bind(randomHex(12), email, name, hash, salt, new Date().toISOString(), "").run();
     await sendCode(env, email);
     return json({ needCode: true });
   }
