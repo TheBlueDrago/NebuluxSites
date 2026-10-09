@@ -19,7 +19,7 @@
 <main>
   <section class="hx">
     <span class="badge2 rv">Done-for-you websites, built live <b>New</b></span>
-    <h1 class="display rv d1">Your website.<br><span class="shine">Built for you.</span></h1>
+    <h1 class="display rv d1">Your website.<br><span class="shine">Built for</span> <span class="rot" id="rot">you</span><span class="dot2">.</span></h1>
     <p class="lead rv d2">Tell us what you want. Our team designs and builds a fast, beautiful website, and you watch it come to life with a live preview, every step of the way.</p>
     <div class="ctas rv d3"><a class="btn lux" href="/account.html#req">Start my website →</a><a class="btn glass" href="#work">See our work</a></div>
     <div class="trust rv d3"><span><i>✓</i> Free to request</span><span><i>✓</i> $5 to start</span><span><i>✓</i> Pay the rest when it's done</span></div>
@@ -45,6 +45,24 @@
     <div class="rv d1"><b>$<span data-n="5">0</span></b><span>to get started</span></div>
     <div class="rv d2"><b data-n="100">0</b><span>% yours: the whole site in a ZIP</span></div>
     <div class="rv d3"><b>24/7</b><span>live preview of your build</span></div>
+  </section>
+
+  <div class="sh rv" id="try"><span class="eyebrow">Try it now</span><h2>See your website<br>before you ask.</h2><p>Type your business name and pick a style. This is a quick sketch; the real one is designed by hand.</p></div>
+  <section class="tryit rv">
+    <div class="tcontrols">
+      <label>Business name</label><input id="tName" maxlength="28" value="Golden Batch">
+      <label>What do you do?</label><input id="tWhat" maxlength="60" value="Fresh cookies, baked every morning">
+      <label>Style</label>
+      <div class="tstyles" id="tStyles">
+        <button data-s="warm" class="on" style="--a:#c2410c;--b:#fff7ed">Warm</button>
+        <button data-s="bold" style="--a:#7c3aed;--b:#0b0820">Bold</button>
+        <button data-s="fresh" style="--a:#059669;--b:#ecfdf5">Fresh</button>
+        <button data-s="lux" style="--a:#b8860b;--b:#0d0d0d">Luxury</button>
+        <button data-s="ocean" style="--a:#0284c7;--b:#f0f9ff">Ocean</button>
+      </div>
+      <a class="btn lux" style="margin-top:22px;width:100%" id="tGo" href="/account.html#req">Build this for real →</a>
+    </div>
+    <div class="tframe"><div class="bar1"><b></b><b></b><b></b><span class="url" id="tUrl">goldenbatch.com</span></div><div class="tsite" id="tSite"></div></div>
   </section>
 
   <div class="sh rv" id="features"><span class="eyebrow">Why Nebulux Sites</span><h2>Everything you need.<br>Nothing you don't.</h2><p>A real team builds your website by hand, and you can see every step.</p></div>
@@ -126,6 +144,38 @@ const io = new IntersectionObserver((es) => es.forEach((e) => {
 }), { threshold: .15 });
 const watch = () => document.querySelectorAll(".rv:not(.in)").forEach((el) => io.observe(el));
 watch();
+// rotating word in the hero
+(() => {
+  const W = ["you", "bakeries", "startups", "creators", "restaurants", "your shop", "your club", "you"];
+  const el = document.getElementById("rot"); let i = 0;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  setInterval(() => { el.classList.add("out"); setTimeout(() => { i = (i + 1) % W.length; el.textContent = W[i]; el.classList.remove("out"); }, 350); }, 2200);
+})();
+// "Try it": a live mock-up of their website
+(() => {
+  const ST = {
+    warm: { a: "#c2410c", bg: "#fff7ed", fg: "#431407", card: "#ffedd5", font: "Georgia, serif" },
+    bold: { a: "#a78bfa", bg: "#0b0820", fg: "#f5f3ff", card: "#1c1640", font: "Sora, sans-serif" },
+    fresh: { a: "#059669", bg: "#ecfdf5", fg: "#064e3b", card: "#d1fae5", font: "Inter, sans-serif" },
+    lux: { a: "#d4a017", bg: "#0d0d0d", fg: "#fafaf9", card: "#1c1917", font: "'Times New Roman', serif" },
+    ocean: { a: "#0284c7", bg: "#f0f9ff", fg: "#0c4a6e", card: "#e0f2fe", font: "Inter, sans-serif" },
+  };
+  let style = "warm", t = 0;
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const draw = () => {
+    const n = document.getElementById("tName").value.trim() || "Your business", w = document.getElementById("tWhat").value.trim() || "What you do, in one line", c = ST[style];
+    document.getElementById("tUrl").textContent = n.toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com";
+    const site = document.getElementById("tSite");
+    site.style.cssText = `--a:${c.a};--bg:${c.bg};--fg:${c.fg};--card:${c.card};font-family:${c.font}`;
+    site.innerHTML = `<nav><b>${esc(n)}</b><span>Home</span><span>About</span><span>Contact</span><i>Order</i></nav>
+      <header><small>Welcome to</small><h3>${esc(n)}</h3><p>${esc(w)}</p><div><i>Get started</i><u>Learn more</u></div></header>
+      <section>${["Our story", "What we offer", "Find us"].map((h, k) => `<div style="animation-delay:${k * .12}s"><em></em><b>${h}</b><span></span><span></span></div>`).join("")}</section>`;
+    site.classList.remove("go"); void site.offsetWidth; site.classList.add("go");
+  };
+  for (const id of ["tName", "tWhat"]) document.getElementById(id).addEventListener("input", () => { clearTimeout(t); t = setTimeout(draw, 250); });
+  document.querySelectorAll("#tStyles button").forEach((b) => (b.onclick = () => { style = b.dataset.s; document.querySelectorAll("#tStyles button").forEach((x) => x.classList.toggle("on", x === b)); draw(); }));
+  draw();
+})();
 // plans
 const FEAT = {
   onetime: ["Top priority: about 1–2 weeks", "Live preview while we build", "Changes until you love it", "Your website as a ZIP + setup steps"],

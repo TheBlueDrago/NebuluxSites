@@ -47,9 +47,14 @@ async function load() {
         <div class="row" style="margin-top:8px"><input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px"><input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link" style="flex:1;min-width:200px"></div>
         <input data-z="${esc(o.id)}" value="${esc(o.zip_url)}" placeholder="Custom ZIP link (leave empty to use the GitHub repo)" style="margin-top:8px">
       </details>
+      ${o.status === "complete" ? `<button class="btn ghost" style="margin-top:8px;float:right" data-arch="${esc(o.id)}">🗑 Remove finished website</button>` : ""}
       <button class="btn" style="margin-top:8px" data-save="${esc(o.id)}">Save</button> <span class="ok" data-ok="${esc(o.id)}"></span>
     </div>`).join("") || '<p class="muted">No orders yet.</p>');
     const quick = (id, status) => call("/api/admin/order", { id, status, price: document.querySelector(`[data-p="${id}"]`).value, pay_link: document.querySelector(`[data-l="${id}"]`).value, note: document.querySelector(`[data-n="${id}"]`).value, progress: document.querySelector(`[data-g="${id}"]`).value }).then(load);
+  document.querySelectorAll("[data-arch]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Remove this finished website from your list? The customer keeps it on their dashboard (with the download) until they remove it.")) return;
+    const r = await call("/api/admin/archive", { id: b.dataset.arch }); if (!r.ok) alert(r.error); load();
+  }));
   document.querySelectorAll("[data-acc]").forEach((b) => (b.onclick = () => quick(b.dataset.acc, "awaiting deposit")));
   document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline and delete this request? They get an email, and it disappears for both of you.") && quick(b.dataset.dec, "cancelled")));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {

@@ -94,7 +94,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -372,12 +372,13 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND status = 'cancelled'").bind(clip(body.id, 20), u.id).run();
+    await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
+    await db.prepare("UPDATE orders SET user_hidden = 1 WHERE id = ? AND user_id = ? AND status = 'complete'").bind(clip(body.id, 20), u.id).run();
     return json({ ok: true });
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
     for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
     return json({ orders });
@@ -388,9 +389,18 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!env.ADMIN_KEY) return json({ error: "Set the ADMIN_KEY secret on the Worker first." }, 503);
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
-    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/archive" && req.method === "POST") {
+      const id = clip(body.id, 20);
+      const o = await db.prepare("SELECT status, user_hidden FROM orders WHERE id = ?").bind(id).first();
+      if (!o || o.status !== "complete") return json({ error: "Only finished (complete) websites can be removed." }, 400);
+      if (o.user_hidden) await db.prepare("DELETE FROM orders WHERE id = ?").bind(id).run();
+      else await db.prepare("UPDATE orders SET admin_hidden = 1 WHERE id = ?").bind(id).run();
+      if (env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE id = ?").bind(id).run().catch(() => {});
+      return json({ ok: true });
+    }
     if (path === "/api/admin/waitlist") { const r = await db.prepare("SELECT email, created_at FROM waitlist ORDER BY created_at DESC LIMIT 5000").all(); return json({ people: r.results || [] }); }
     if (path === "/api/admin/promos") {
       if (req.method === "POST" && body.action === "create") {

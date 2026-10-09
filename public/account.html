@@ -121,7 +121,7 @@ function orderCard(o) {
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview →</a>` : ""}</p>`}
     ${pay}
     ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>🎉 Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
-    ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a></div>` : ""}
+    ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -156,6 +156,7 @@ function drawRequest() {
   $("reqBlocked").style.display = busy ? "" : "none"; $("reqBox").style.display = busy ? "none" : "";
   if (busy) $("reqBlocked").innerHTML = `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">🛠️</div><h2 style="margin:6px 0">You already have a website in the works</h2><p class="muted">${esc(busy.kind || busy.id)} is <b>${esc(busy.status)}</b>. You can request another website when it's finished.</p><button class="btn" style="margin-top:14px" onclick="view('dash')">Go to my dashboard</button></div>`;
 }
+async function removeDone(id) { if (!confirm("Remove this finished website from your dashboard? Download your ZIP first: you won't be able to get it here after.")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {

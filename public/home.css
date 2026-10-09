@@ -140,3 +140,37 @@ body.home nav a:not(.btn){font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none}}
 .shot.feature{grid-column:1/-1;text-decoration:none;color:inherit}.shot.feature .win{height:460px}.shot.feature:hover .win img{transform:translateY(calc(-100% + 460px))}
+
+/* hero rotating word */
+.rot{display:inline-block;transition:opacity .35s,transform .35s,filter .35s}.rot.out{opacity:0;transform:translateY(-.25em);filter:blur(6px)}
+/* Try it */
+.tryit{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:stretch}
+.tcontrols{padding:28px;border-radius:26px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line2)}
+.tcontrols label{display:block;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--soft);margin:16px 0 8px}.tcontrols label:first-child{margin-top:0}
+.tcontrols input{width:100%;font:inherit;font-size:16px;padding:13px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);color:#fff;outline:none}.tcontrols input:focus{border-color:#d16cf5;box-shadow:0 0 0 4px rgba(209,108,245,.15)}
+.tstyles{display:flex;flex-wrap:wrap;gap:8px}
+.tstyles button{display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#e9e5ff;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.tstyles button::before{content:"";width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,var(--a) 50%,var(--b) 50%);box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.tstyles button.on{border-color:#d16cf5;background:rgba(209,108,245,.14)}
+.tframe{border-radius:22px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0d0b22;box-shadow:0 50px 120px -40px rgba(130,80,255,.7)}
+.tframe .bar1{display:flex;align-items:center;gap:7px;padding:11px 14px;background:rgba(255,255,255,.05);border-bottom:1px solid var(--line2)}
+.tframe .bar1 b{width:11px;height:11px;border-radius:50%;background:#ff5f57}.tframe .bar1 b:nth-child(2){background:#febc2e}.tframe .bar1 b:nth-child(3){background:#28c840}
+.tframe .url{margin:0 auto;padding:5px 60px;border-radius:8px;background:rgba(0,0,0,.35);color:var(--soft);font-size:13px}
+.tsite{background:var(--bg);color:var(--fg);min-height:430px;padding:0 0 26px;transition:background .4s,color .4s}
+.tsite nav{display:flex;align-items:center;gap:20px;padding:16px 26px;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent)}
+.tsite nav b{font-size:18px;margin-right:auto}.tsite nav span{opacity:.7}.tsite nav i{font-style:normal;background:var(--a);color:#fff;padding:7px 14px;border-radius:999px;font-weight:700}
+.tsite header{text-align:center;padding:48px 26px 34px}.tsite header small{letter-spacing:.2em;text-transform:uppercase;opacity:.6;font-size:12px}
+.tsite header h3{font-size:clamp(30px,4vw,52px);line-height:1.05;margin:10px 0;color:var(--a);letter-spacing:-.02em}
+.tsite header p{opacity:.8;font-size:17px}.tsite header div{display:flex;gap:12px;justify-content:center;margin-top:20px}
+.tsite header i{font-style:normal;background:var(--a);color:#fff;padding:11px 20px;border-radius:12px;font-weight:700}.tsite header u{text-decoration:none;padding:11px 20px;border-radius:12px;border:1px solid color-mix(in srgb,var(--fg) 25%,transparent)}
+.tsite section{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:0 26px}
+.tsite section div{background:var(--card);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.tsite section em{display:block;height:70px;border-radius:10px;background:linear-gradient(135deg,var(--a),color-mix(in srgb,var(--a) 40%,var(--card)))}
+.tsite section span{height:8px;border-radius:9px;background:color-mix(in srgb,var(--fg) 15%,transparent)}.tsite section span:last-child{width:60%}
+.tsite.go nav,.tsite.go header,.tsite.go section div{animation:pop .6s cubic-bezier(.2,.8,.2,1) both}
+.tsite.go header{animation-delay:.08s}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.98);filter:blur(4px)}}
+@media (max-width:900px){.tryit{grid-template-columns:1fr}.tsite section{grid-template-columns:1fr}.tsite nav span{display:none}}
+/* section dividers */
+.sh::before{content:"";display:block;width:1px;height:70px;margin:0 auto 26px;background:linear-gradient(transparent,rgba(209,108,245,.6))}
+.hx h1 .rot{display:inline-block;color:#f0abfc;text-shadow:0 0 40px rgba(240,171,252,.45)}.hx h1 .dot2{color:#c4b5fd}
