@@ -425,6 +425,8 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       const zip = String(body.zip_url || "").trim();
       if (zip && !/^https:\/\//.test(zip)) return json({ error: "The ZIP link has to start with https://" }, 400);
       if (zip) await db.prepare("UPDATE orders SET zip_url = ? WHERE id = ?").bind(clip(zip, 500), clip(body.id, 20)).run();
+      // A paid-in-full order that was waiting for its ZIP: tell the customer it's ready now.
+      if (before && before.status === "complete" && !before.github && !before.zip_url && (zip || ghRepo(body.github || ""))) await mail(env, before.email, "Your website is ready to download!", `Hi ${before.name || "there"},\n\nYour ZIP file is ready. Download your website from your account page:\n${SITE}/account.html\n\nNebulux Sites`);
       const prev = String(body.preview_url || "").trim();
       if (prev && !/^https:\/\//.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
       const old = await db.prepare("SELECT note, updates, status, email, name FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
