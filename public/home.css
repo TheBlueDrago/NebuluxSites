@@ -194,3 +194,8 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
   body.past-hero #helpBtn{bottom:86px}
 }
 @media (max-width:900px){.sh{margin:90px auto 36px}.sh::before{height:44px;margin-bottom:18px}#helpBtn{padding:12px 15px;font-size:0;gap:0}#helpBtn span{font-size:18px}}
+
+.revgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.rev{margin:0;padding:26px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line2)}
+.rstars{color:#facc15;font-size:18px;letter-spacing:2px}.rstars span{color:rgba(255,255,255,.18)}
+.rev blockquote{margin:12px 0 16px;font-size:17px;line-height:1.6;color:#ece8ff}.rev figcaption{color:var(--soft);font-size:14px}.rev figcaption b{color:#fff}

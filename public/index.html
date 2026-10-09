@@ -95,6 +95,8 @@
     <div class="shot rv d1"><div class="win"><img src="/ex-creator.jpg" alt="BaseWeb AI startup website"></div><div class="cap"><b>BaseWeb AI</b><span>Startup · landing page</span></div></div>
   </section>
 
+  <div id="reviewsWrap" style="display:none"><div class="sh rv"><span class="eyebrow">Reviews</span><h2>What our customers say.</h2><p>Real reviews from people we built websites for.</p></div><section class="revgrid" id="revgrid"></section></div>
+
   <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p></div>
   <section class="plans" id="plans"></section>
   <p class="muted rv" style="text-align:center;margin-top:22px;font-size:14px">Every plan: free to request · $5 starting fee (comes off your price) · you set up your own domain, hosting and payment provider (we show you how) · *build times are estimates</p>
@@ -181,6 +183,14 @@ watch();
   document.querySelectorAll("#tStyles button").forEach((b) => (b.onclick = () => { style = b.dataset.s; document.querySelectorAll("#tStyles button").forEach((x) => x.classList.toggle("on", x === b)); draw(); }));
   draw();
 })();
+// real reviews (approved by the owner)
+fetch("/api/reviews").then((r) => r.json()).then(({ reviews }) => {
+  if (!reviews || !reviews.length) return;
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  document.getElementById("revgrid").innerHTML = reviews.map((v, i) => `<figure class="rev rv d${i % 3}"><div class="rstars">${"★".repeat(v.stars)}<span>${"★".repeat(5 - v.stars)}</span></div><blockquote>“${esc(v.text)}”</blockquote><figcaption><b>${esc(v.name)}</b>${v.business ? " · " + esc(v.business) : ""}</figcaption></figure>`).join("");
+  document.getElementById("reviewsWrap").style.display = "";
+  watch();
+}).catch(() => {});
 // plans
 const FEAT = {
   onetime: ["Top priority: about 1–2 weeks", "Live preview while we build", "Changes until you love it", "Your website as a ZIP + setup steps"],

@@ -108,6 +108,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS reviews (order_id TEXT PRIMARY KEY, user_id TEXT, name TEXT, business TEXT, stars INTEGER, text TEXT, approved INTEGER DEFAULT 0, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
@@ -161,6 +162,22 @@ async function api(req, env, path) {
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const db = env.DB;
   if (path === "/api/packages") return json({ packages: PACKAGES });
+  // Reviews: only from customers whose website is finished, and only shown after the owner approves.
+  if (path === "/api/reviews") {
+    const r = await db.prepare("SELECT name, business, stars, text, at FROM reviews WHERE approved = 1 ORDER BY at DESC LIMIT 12").all().catch(() => ({ results: [] }));
+    return json({ reviews: r.results || [] }, 200, { "cache-control": "public, max-age=300" });
+  }
+  if (path === "/api/review" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const o = await db.prepare("SELECT id, kind FROM orders WHERE id = ? AND user_id = ? AND status = 'complete'").bind(clip(body.id, 20), u.id).first();
+    if (!o) return json({ error: "You can review a website once it's finished." }, 400);
+    const stars = Math.max(1, Math.min(5, Math.round(+body.stars || 0)));
+    const text = clip(String(body.text || "").trim(), 600);
+    if (text.length < 10) return json({ error: "Write a sentence or two about your experience." }, 400);
+    await db.prepare("INSERT OR REPLACE INTO reviews (order_id, user_id, name, business, stars, text, approved, at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)").bind(o.id, u.id, clip(String(u.name || "A customer").split(" ")[0], 40), clip(o.kind || "", 60), stars, text, new Date().toISOString()).run();
+    await mail(env, env.OWNER_EMAIL, `New ${stars}-star review from ${u.name}`, `${"★".repeat(stars)}\n\n${text}\n\nApprove it to show it on the homepage: ${SITE}/admin.html`);
+    return json({ ok: true });
+  }
 
   // ---- Continue with Google (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET secrets) ----
   if (path === "/api/google") {
@@ -479,6 +496,12 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/reviews") {
+      if (req.method === "POST" && body.action === "approve") await db.prepare("UPDATE reviews SET approved = 1 - approved WHERE order_id = ?").bind(clip(body.id, 20)).run();
+      if (req.method === "POST" && body.action === "delete") await db.prepare("DELETE FROM reviews WHERE order_id = ?").bind(clip(body.id, 20)).run();
+      const r = await db.prepare("SELECT * FROM reviews ORDER BY at DESC LIMIT 200").all();
+      return json({ reviews: r.results || [] });
+    }
     if (path === "/api/admin/messages") {
       const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
       if (req.method === "POST" && String(body.text || "").trim()) {

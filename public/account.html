@@ -161,6 +161,7 @@ function orderCard(o) {
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview →</a>` : ""}</p>`}
     ${pay}
     ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>🎉 Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
+    ${o.status === "complete" ? `<details class="msgs rev"><summary>⭐ Leave a review</summary><form class="revform" onsubmit="sendReview(event, '${esc(o.id)}')"><div class="stars" data-v="5">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="on">★</button>`).join("")}</div><textarea maxlength="600" required placeholder="How was it working with us? What do you think of your website?"></textarea><button class="btn">Send review</button><p class="muted" style="font-size:13px">We may show it on our homepage with your first name.</p></form></details>` : ""}
     ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
     ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>💬 Messages with us</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
@@ -222,6 +223,17 @@ async function sendMsg(e, id) {
   inp.disabled = true; const r = await post("/api/messages", { id, text }); inp.disabled = false;
   if (!r.ok) return alert(r.error || "Couldn't send that.");
   inp.value = ""; drawMsgs(id, r.messages || []);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".stars button"); if (!b) return;
+  const box = b.parentElement, n = +b.dataset.n; box.dataset.v = n;
+  box.querySelectorAll("button").forEach((x) => x.classList.toggle("on", +x.dataset.n <= n));
+});
+async function sendReview(e, id) {
+  e.preventDefault(); const f = e.target;
+  const r = await post("/api/review", { id, stars: f.querySelector(".stars").dataset.v, text: f.querySelector("textarea").value });
+  if (!r.ok) return alert(r.error || "Couldn't send that.");
+  f.innerHTML = '<p class="ok">Thank you for your review! 💜</p>';
 }
 async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
