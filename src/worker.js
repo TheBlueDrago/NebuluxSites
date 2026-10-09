@@ -330,7 +330,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, CASE WHEN status = 'complete' THEN zip_url ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, CASE WHEN status = 'complete' THEN zip_url ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND status != 'cancelled' ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -339,7 +339,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!env.ADMIN_KEY) return json({ error: "Set the ADMIN_KEY secret on the Worker first." }, 503);
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
-    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     if (path === "/api/admin/promos") {
       if (req.method === "POST" && body.action === "create") {
         const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
@@ -383,6 +383,10 @@ See your order: ${SITE}/account.html
 Nebulux Sites`;
         if (status === "awaiting deposit") await mail(env, old.email, "Your website request was accepted!", hi + "Good news: we accepted your website request! To continue, pay your $5 starting fee on the Billing page (it comes off your price). Then we start building." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
         if (status === "cancelled" && old.status === "in review") await mail(env, old.email, "About your website request", hi + "Thanks for your request. Sorry, we can't take this one on right now, so we declined it. You weren't charged anything. You're welcome to send a different request any time." + see);
+        if (status === "cancelled") {
+          await db.prepare("DELETE FROM orders WHERE id = ?").bind(clip(body.id, 20)).run();
+          if (env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE id = ?").bind(clip(body.id, 20)).run().catch(() => {});
+        }
         if (status === "building") await mail(env, old.email, "We started building your website", hi + "We got your payment and started building your website. You can watch the progress and a live preview on your account page." + see);
         if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest on the Billing page to get it." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
         if (status === "complete") await mail(env, old.email, "Thank you! Your website is all yours", hi + "We got your payment. Thank you! Your website is complete.\n\nDownload your website (a ZIP file) from your account page. Then upload it to your own hosting and connect your domain. The steps are in our instructions, and you can reply to this email if you get stuck." + see);

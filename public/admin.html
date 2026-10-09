@@ -50,7 +50,7 @@ async function load() {
   document.querySelectorAll("[data-f]").forEach((f) => (f.onchange = async () => { const file = f.files[0]; if (file) document.querySelector(`[data-h="${f.dataset.f}"]`).value = await file.text(); }));
   const quick = (id, status) => call("/api/admin/order", { id, status, price: document.querySelector(`[data-p="${id}"]`).value, pay_link: document.querySelector(`[data-l="${id}"]`).value, note: document.querySelector(`[data-n="${id}"]`).value, progress: document.querySelector(`[data-g="${id}"]`).value, preview_url: document.querySelector(`[data-v="${id}"]`).value }).then(load);
   document.querySelectorAll("[data-acc]").forEach((b) => (b.onclick = () => quick(b.dataset.acc, "awaiting deposit")));
-  document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline this request? They'll get an email.") && quick(b.dataset.dec, "cancelled")));
+  document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline and delete this request? They get an email, and it disappears for both of you.") && quick(b.dataset.dec, "cancelled")));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
     const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), preview_url: q("v"), preview_html: q("h"), zip_url: q("z") });
