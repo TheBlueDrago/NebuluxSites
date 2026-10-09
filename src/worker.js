@@ -50,6 +50,26 @@ async function allow(key, max, sec) {
   return true;
 }
 
+// What the customer owes right now: the $5 starting fee after we accept a request, then the rest
+// (one payment, or one month at a time on the monthly plans) once the website is finished.
+const INSTALL = { monthly5: 49, monthly3: 75 };
+function billFor(o) {
+  const paid = o.paid_total || 0, left = Math.max(0, (o.price || 0) - paid);
+  if (o.status === "awaiting deposit") return { due: "deposit", amount: 5, label: "starting fee", paid, left };
+  if (o.status === "awaiting payment" && left > 0) {
+    const n = INSTALL[o.package];
+    return { due: "rest" + Math.round(paid), amount: n ? Math.min(n, left) : left, label: n ? `monthly payment ($${n}/month)` : "the rest of the price", paid, left };
+  }
+  return { due: "", amount: 0, label: "", paid, left };
+}
+const paypalBase = (env) => (env.PAYPAL_ENV === "sandbox" ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com");
+async function paypalToken(env) {
+  const r = await fetch(paypalBase(env) + "/v1/oauth2/token", {
+    method: "POST", headers: { authorization: "Basic " + btoa(env.PAYPAL_CLIENT_ID + ":" + env.PAYPAL_SECRET), "content-type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials",
+  }).then((x) => x.json()).catch(() => ({}));
+  return r.access_token || "";
+}
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -58,9 +78,10 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, code_hash TEXT, expires INTEGER, tries INTEGER DEFAULT 0)"),
     db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -217,6 +238,57 @@ ${details}
 Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" and add the $5 payment link).`);
     return json({ ok: true, id });
   }
+  // ---- billing: pay the $5 starting fee and the rest with PayPal ----
+  // Amounts always come from the order on the server, never from the browser. A payment only
+  // counts after PayPal says it's COMPLETED for the right order and the right amount.
+  // Secrets: PAYPAL_CLIENT_ID, PAYPAL_SECRET; PAYPAL_ENV = "sandbox" to test (live by default).
+  if (path === "/api/billing" || path === "/api/pay/create" || path === "/api/pay/capture") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
+    const o = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
+    if (!o) return json({ error: "We couldn't find that order." }, 404);
+    const bill = billFor(o);
+    if (path === "/api/billing") {
+      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price }, ...bill, paypal: env.PAYPAL_CLIENT_ID || "", pay_link: o.pay_link || "" });
+    }
+    if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_SECRET) return json({ error: "Online payments aren't set up yet." }, 503);
+    if (!bill.amount) return json({ error: "Nothing to pay right now." }, 400);
+    if (!(await allow("pay:" + u.id, 30, 3600))) return json({ error: "Too many tries. Please wait a bit." }, 429);
+    const token = await paypalToken(env);
+    if (!token) return json({ error: "Payments are having trouble. Please try again soon." }, 502);
+    const PP = paypalBase(env);
+    if (path === "/api/pay/create") {
+      const r = await fetch(PP + "/v2/checkout/orders", {
+        method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" },
+        body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ reference_id: o.id, custom_id: o.id + ":" + bill.due, description: `Nebulux Sites ${o.id}: ${bill.label}`, amount: { currency_code: "USD", value: bill.amount.toFixed(2) } }] }),
+      }).then((x) => x.json()).catch(() => ({}));
+      if (!r.id) return json({ error: "Couldn't start the payment. Please try again." }, 502);
+      return json({ ppid: r.id });
+    }
+    // capture
+    const ppid = String(body.ppid || "").replace(/[^A-Z0-9]/gi, "").slice(0, 40);
+    if (!ppid) return json({ error: "Missing payment." }, 400);
+    if (await db.prepare("SELECT 1 FROM payments WHERE ppid = ?").bind(ppid).first()) return json({ ok: true, already: true });
+    const r = await fetch(PP + `/v2/checkout/orders/${ppid}/capture`, { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" } }).then((x) => x.json()).catch(() => ({}));
+    const cap = r?.purchase_units?.[0]?.payments?.captures?.[0];
+    const paid = Number(cap?.amount?.value || 0);
+    if (r.status !== "COMPLETED" || !cap || cap.status !== "COMPLETED" || cap.amount?.currency_code !== "USD" || cap.custom_id !== o.id + ":" + bill.due || Math.abs(paid - bill.amount) > 0.001) {
+      return json({ error: "The payment didn't go through. You weren't charged for it here; please try again or contact us." }, 400);
+    }
+    const now = new Date().toISOString();
+    const total = (o.paid_total || 0) + paid;
+    const left = Math.max(0, (o.price || 0) - total);
+    const next = bill.due === "deposit" ? "building" : left > 0 ? "awaiting payment" : "complete";
+    await db.batch([
+      db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now),
+      db.prepare("UPDATE orders SET paid_total = ?, status = ?, claimed = '', updated_at = ? WHERE id = ?").bind(total, next, now, o.id),
+    ]);
+    if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
+    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} with PayPal.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete. Add the ZIP link on the admin page if you haven't."}\n\n${SITE}/admin.html`);
+    await mail(env, u.email, `Payment received for ${o.id}`, `Hi ${u.name || "there"},\n\nWe got your payment of $${paid.toFixed(2)} (${bill.label}). Thank you!\n\n${bill.due === "deposit" ? "We're starting on your website now. You can watch the live preview on your account page." : left > 0 ? `$${left.toFixed(2)} is left to pay.` : "Your website is fully paid. Download it from your account page."}\n\n${SITE}/account.html\n\nNebulux Sites`);
+    return json({ ok: true, status: next, left });
+  }
+
   if (path === "/api/paid" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     if (!(await allow("paid:" + u.id, 10, 3600))) return json({ error: "Please wait a bit." }, 429);
@@ -237,7 +309,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, CASE WHEN status = 'complete' THEN zip_url ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, CASE WHEN status = 'complete' THEN zip_url ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -273,9 +345,10 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
 See your order: ${SITE}/account.html
 
 Nebulux Sites`;
-        if (status === "awaiting deposit") await mail(env, old.email, "Your website request was accepted!", hi + "Good news: we accepted your website request. To continue, pay the $5 request fee (it comes off your final price). Then we start building." + see);
+        if (status === "awaiting deposit") await mail(env, old.email, "Your website request was accepted!", hi + "Good news: we accepted your website request! To continue, pay your $5 starting fee on the Billing page (it comes off your price). Then we start building." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
+        if (status === "cancelled" && old.status === "in review") await mail(env, old.email, "About your website request", hi + "Thanks for your request. Sorry, we can't take this one on right now, so we declined it. You weren't charged anything. You're welcome to send a different request any time." + see);
         if (status === "building") await mail(env, old.email, "We started building your website", hi + "We got your payment and started building your website. You can watch the progress and a live preview on your account page." + see);
-        if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest of the price to get it." + see);
+        if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest on the Billing page to get it." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
         if (status === "complete") await mail(env, old.email, "Thank you! Your website is all yours", hi + "We got your payment. Thank you! Your website is complete.\n\nDownload your website (a ZIP file) from your account page. Then upload it to your own hosting and connect your domain. The steps are in our instructions, and you can reply to this email if you get stuck." + see);
       }
       return json({ ok: true });
