@@ -5,11 +5,11 @@
 // Storage: D1 (binding DB). Emails: Resend (secret RESEND_API_KEY). Admin page: secret ADMIN_KEY.
 
 // The packages and prices (US dollars). Change them here.
+// price = the total; each plan's label says how it's paid.
 export const PACKAGES = {
-  starter: { name: "Starter", price: 49, blurb: "A one-page website: perfect for a small business, club or portfolio." },
-  business: { name: "Business", price: 99, blurb: "Up to 5 pages with a contact form, built to look great on phones." },
-  store: { name: "Online Store", price: 199, blurb: "A shop with products, a cart and checkout." },
-  custom: { name: "Custom", price: 0, blurb: "Something bigger? Tell us and we'll send a quote." },
+  monthly5: { name: "5 months", price: 245, label: "$49/month", small: "for 5 months", blurb: "Pay a little at a time: $49 a month for 5 months." },
+  monthly3: { name: "3 months", price: 225, label: "$75/month", small: "for 3 months", blurb: "Pay it off faster: $75 a month for 3 months." },
+  onetime: { name: "One time", price: 199, label: "$199", small: "one time", blurb: "Pay once and save. The best deal." },
 };
 const DEPOSIT = 5;
 const STATUSES = ["awaiting deposit", "awaiting payment", "paid", "building", "done", "cancelled"];
@@ -121,6 +121,10 @@ async function api(req, env, path) {
     let user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
     if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at) VALUES (?, ?, ?, '', '', 1, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString()).run(); }
     else await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(user.id).run();
+    if (!(await trustedFor(env, req, user.id))) {
+      await sendCode(env, email);
+      return new Response(null, { status: 302, headers: { location: origin + "/account.html?code=" + encodeURIComponent(email), "set-cookie": setCookie("ns_gstate", "", 0) } });
+    }
     const res = await startSession(env, user.id, true), h = new Headers(res.headers);
     h.set("location", origin + "/account.html"); h.append("set-cookie", setCookie("ns_gstate", "", 0));
     return new Response(null, { status: 302, headers: h });
@@ -190,7 +194,7 @@ async function api(req, env, path) {
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
-      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, clip(body.pages, 300), clip(body.deadline, 40), clip(body.links, 600), "awaiting deposit", now, now).run();
+      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "awaiting deposit", now, now).run();
     if (env.AIDB) await env.AIDB.batch([
       env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT)"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
