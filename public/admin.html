@@ -27,7 +27,10 @@ async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
   sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist();
-  $("list").innerHTML = `<h2 style="margin:0 0 12px;text-align:left">Orders (${r.orders.length})</h2>` + (r.orders.map((o) => `
+  const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
+  const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
+  const tiles = [["Money collected", "$" + money.toFixed(0)], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
+  $("list").innerHTML = `<div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${tiles.map(([k, v]) => `<div class="tile"><small>${k}</small><b>${v}</b></div>`).join("")}</div><h2 style="margin:0 0 12px;text-align:left">Orders (${O.length})</h2>` + (r.orders.map((o) => `
     <div class="card" style="margin-bottom:12px">
       <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
