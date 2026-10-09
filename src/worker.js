@@ -339,6 +339,8 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    // The Nebulux AI owner link checks its password against this same key.
+    if (path === "/api/admin/check") return json({ ok: true });
     if (path === "/api/admin/waitlist") { const r = await db.prepare("SELECT email, created_at FROM waitlist ORDER BY created_at DESC LIMIT 5000").all(); return json({ people: r.results || [] }); }
     if (path === "/api/admin/promos") {
       if (req.method === "POST" && body.action === "create") {
