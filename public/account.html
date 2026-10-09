@@ -162,6 +162,7 @@ function orderCard(o) {
     ${pay}
     ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>🎉 Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
     ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
+    ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>💬 Messages with us</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -206,16 +207,34 @@ $("delBtn").onclick = async () => {
   if (!r.ok) { $("acctErr").textContent = r.error || "Something went wrong."; return; }
   location.href = "/";
 };
+function drawMsgs(id, list) {
+  const el = document.getElementById("ml-" + id); if (!el) return;
+  el.innerHTML = list.length ? list.map((m) => `<div class="m ${m.sender === "owner" ? "them" : "me"}"><span>${esc(m.text)}</span><small>${m.sender === "owner" ? "Nebulux Sites" : "You"} · ${new Date(m.at).toLocaleString()}</small></div>`).join("") : '<p class="muted">No messages yet. Ask us anything about your website.</p>';
+  el.scrollTop = el.scrollHeight;
+}
+document.addEventListener("toggle", async (e) => {
+  const d = e.target; if (!d.classList || !d.classList.contains("msgs") || !d.open) return;
+  const r = await fetch("/api/messages?id=" + encodeURIComponent(d.dataset.mid)).then((x) => x.json()).catch(() => ({}));
+  drawMsgs(d.dataset.mid, r.messages || []);
+}, true);
+async function sendMsg(e, id) {
+  e.preventDefault(); const inp = e.target.querySelector("input"), text = inp.value.trim(); if (!text) return;
+  inp.disabled = true; const r = await post("/api/messages", { id, text }); inp.disabled = false;
+  if (!r.ok) return alert(r.error || "Couldn't send that.");
+  inp.value = ""; drawMsgs(id, r.messages || []);
+}
 async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {
   const r = await fetch("/api/orders").then((x) => x.json());
+  const openMsgs = [...document.querySelectorAll("details.msgs[open]")].map((d) => d.dataset.mid);
   const list = r.orders || []; ORDERS = list;
   const act = list.find(ACTIVE), paidAll = list.reduce((n, o) => n + (o.paid_total || 0), 0);
   const nextStep = !act ? "Request a website" : { "in review": "We're reviewing it", "awaiting deposit": "Pay your $5 fee", building: "We're building it", "awaiting payment": "Pay the rest" }[act.status] || act.status;
   const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : 0}%</b><span>${act ? esc(act.kind || act.id) : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
   $("orders").innerHTML = list.length ? tiles + list.map(orderCard).join("") : `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">✨</div><h2 style="margin:6px 0">No websites yet</h2><p class="muted">Tell us what you want and we'll build it.</p><button class="btn" style="margin-top:14px" onclick="view('req')">Request a website</button></div>`;
   drawRequest(); if ($("v-prev").style.display !== "none") drawPreview();
+  for (const id of openMsgs) { const d = document.querySelector(`details.msgs[data-mid="${id}"]`); if (d) d.open = true; }
 }
 $("orderForm").onsubmit = async (e) => {
   e.preventDefault(); $("orderErr").textContent = ""; $("orderOk").textContent = "";

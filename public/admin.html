@@ -45,6 +45,7 @@ async function load() {
       <label style="margin:12px 0 4px">GitHub repo (the preview updates by itself from it)</label>
       <input data-gh="${esc(o.id)}" value="${esc(o.github)}" placeholder="owner/repo or https://github.com/owner/repo">
       ${o.github ? `<p class="muted" style="font-size:13px;margin-top:4px">Connected: <a href="https://github.com/${esc(o.github)}" target="_blank" rel="noopener">github.com/${esc(o.github)}</a></p>` : ""}
+      <details class="amsg" data-amid="${esc(o.id)}" style="margin-top:10px;background:none;border:1px solid var(--line);border-radius:14px;padding:10px 14px"><summary style="font-weight:700;cursor:pointer">💬 Messages</summary><div class="mlog" id="aml-${esc(o.id)}"></div><form class="mform" data-af="${esc(o.id)}"><input placeholder="Reply to the customer…" maxlength="2000"><button class="btn">Send</button></form></details>
       <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Update for the customer (optional)" style="margin-top:10px">
       <details style="margin-top:10px;background:none;border:0;padding:0"><summary class="muted" style="font-size:14px">More</summary>
         <div class="row" style="margin-top:8px"><input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px"><input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link" style="flex:1;min-width:200px"></div>
@@ -58,6 +59,9 @@ async function load() {
     if (!confirm("Remove this finished website from your list? The customer keeps it on their dashboard (with the download) until they remove it.")) return;
     const r = await call("/api/admin/archive", { id: b.dataset.arch }); if (!r.ok) alert(r.error); load();
   }));
+  const drawA = (id, list) => { const el = document.getElementById("aml-" + id); if (el) { el.innerHTML = list.length ? list.map((m) => `<div class="m ${m.sender === "owner" ? "me" : "them"}"><span>${esc(m.text)}</span><small>${m.sender === "owner" ? "You" : "Customer"} · ${new Date(m.at).toLocaleString()}</small></div>`).join("") : '<p class="muted">No messages yet.</p>'; el.scrollTop = el.scrollHeight; } };
+  document.querySelectorAll("details.amsg").forEach((d) => d.addEventListener("toggle", async () => { if (d.open) { const r = await call("/api/admin/messages?id=" + encodeURIComponent(d.dataset.amid)); drawA(d.dataset.amid, r.messages || []); } }));
+  document.querySelectorAll("[data-af]").forEach((f) => (f.onsubmit = async (e) => { e.preventDefault(); const inp = f.querySelector("input"); if (!inp.value.trim()) return; const r = await call("/api/admin/messages", { id: f.dataset.af, text: inp.value }); inp.value = ""; drawA(f.dataset.af, r.messages || []); }));
   document.querySelectorAll("[data-acc]").forEach((b) => (b.onclick = () => quick(b.dataset.acc, "awaiting deposit")));
   document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline and delete this request? They get an email, and it disappears for both of you.") && quick(b.dataset.dec, "cancelled")));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {

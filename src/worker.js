@@ -108,6 +108,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
@@ -440,6 +441,22 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     const name = (String(o.kind || "website").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "website") + "-" + o.id.toLowerCase() + ".zip";
     return new Response(r.body, { headers: { "content-type": "application/zip", "content-disposition": `attachment; filename="${name}"`, "cache-control": "no-store" } });
   }
+  // Messages on an order: the customer and the owner talk about the website (changes, questions).
+  if (path === "/api/messages") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
+    const o = await db.prepare("SELECT id, kind FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
+    if (!o) return json({ error: "We couldn't find that order." }, 404);
+    if (req.method === "POST") {
+      const text = clip(String(body.text || "").trim(), 2000);
+      if (!text) return json({ error: "Type a message." }, 400);
+      if (!(await allow("msg:" + u.id, 20, 3600))) return json({ error: "You've sent a lot of messages. Please wait a bit." }, 429);
+      await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'customer', ?, ?)").bind(id, text, new Date().toISOString()).run();
+      await mail(env, env.OWNER_EMAIL, `New message on ${id} from ${u.name}`, `${u.name} (${u.email}) wrote about ${o.kind || id}:\n\n${text}\n\nReply on the admin page: ${SITE}/admin.html`);
+    }
+    const r = await db.prepare("SELECT sender, text, at FROM messages WHERE order_id = ? ORDER BY id LIMIT 300").bind(id).all();
+    return json({ messages: r.results || [] });
+  }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
@@ -462,6 +479,17 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/messages") {
+      const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
+      if (req.method === "POST" && String(body.text || "").trim()) {
+        const text = clip(String(body.text).trim(), 2000);
+        await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'owner', ?, ?)").bind(id, text, new Date().toISOString()).run();
+        const o = await db.prepare("SELECT email, name, kind FROM orders WHERE id = ?").bind(id).first();
+        if (o) await mail(env, o.email, `New message about your website`, `Hi ${o.name || "there"},\n\nWe sent you a message about ${o.kind || id}:\n\n${text}\n\nReply on your account page: ${SITE}/account.html`);
+      }
+      const r = await db.prepare("SELECT sender, text, at FROM messages WHERE order_id = ? ORDER BY id LIMIT 300").bind(id).all();
+      return json({ messages: r.results || [] });
+    }
     if (path === "/api/admin/archive" && req.method === "POST") {
       const id = clip(body.id, 20);
       const o = await db.prepare("SELECT status, user_hidden FROM orders WHERE id = ?").bind(id).first();
