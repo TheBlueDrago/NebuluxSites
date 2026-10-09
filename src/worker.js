@@ -198,12 +198,14 @@ async function api(req, env, path) {
   if (path === "/api/order" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     if (!(await allow("order:" + u.id, 10, 3600))) return json({ error: "Too many orders at once. Please wait a while." }, 429);
+    if (!PACKAGES[body.package]) body.package = "onetime";
     const pkg = PACKAGES[body.package]; if (!pkg) return json({ error: "Pick a package." }, 400);
     const details = clip(body.details, 4000).trim();
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
       .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
+    if (env.AIDB) await env.AIDB.prepare("ALTER TABLE site_orders ADD COLUMN status TEXT DEFAULT 'in review'").run().catch(() => {});
     if (env.AIDB) await env.AIDB.batch([
       env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT, status TEXT DEFAULT 'in review')"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),

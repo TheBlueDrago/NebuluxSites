@@ -130,7 +130,7 @@ async function start() {
     return; }
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
   $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
-  $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (want || "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span></div></label>`).join("");
+  $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span></div></label>`).join("");
   show("app"); loadOrders(); setInterval(loadOrders, 60000);
 }
 const gq = new URLSearchParams(location.search).get("google");
