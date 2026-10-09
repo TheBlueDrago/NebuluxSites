@@ -130,3 +130,4 @@ details.msgs{max-width:none;margin:16px 0 0}
   #list .card{padding:14px}
   #list .card input,#list .card select{max-width:100%}
 }
+@media (max-width:640px){.total{position:static!important;box-shadow:none}#reqBox{padding:20px 16px!important;margin:0!important}}
