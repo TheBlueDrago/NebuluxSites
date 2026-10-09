@@ -32,12 +32,16 @@ async function load() {
         <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Payment link (https://…)" style="flex:1;min-width:200px">
       </div>
       <div class="row" style="margin-top:8px"><label style="margin:0">Progress</label><input data-g="${esc(o.id)}" type="number" min="0" max="100" value="${o.progress || 0}" style="width:90px">%<input data-v="${esc(o.id)}" value="${esc(o.preview_url)}" placeholder="Preview link (https://…)" style="flex:1;min-width:200px"></div>
+      <label style="margin:10px 0 4px">Live preview: paste the website's HTML (or load a file). The customer sees it on their account.</label>
+      <textarea data-h="${esc(o.id)}" style="min-height:90px;font-family:monospace;font-size:13px" placeholder="<!DOCTYPE html>…">${esc(o.preview_html)}</textarea>
+      <input type="file" accept=".html,.htm" data-f="${esc(o.id)}" style="margin-top:6px">
       <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Update the customer sees (each new one is added to their timeline)" style="margin-top:8px">
       <button class="btn" style="margin-top:8px" data-save="${esc(o.id)}">Save</button> <span class="ok" data-ok="${esc(o.id)}"></span>
     </div>`).join("") || '<p class="muted">No orders yet.</p>');
+  document.querySelectorAll("[data-f]").forEach((f) => (f.onchange = async () => { const file = f.files[0]; if (file) document.querySelector(`[data-h="${f.dataset.f}"]`).value = await file.text(); }));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
-    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), preview_url: q("v") });
+    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), preview_url: q("v"), preview_html: q("h") });
     document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
   }));
 }

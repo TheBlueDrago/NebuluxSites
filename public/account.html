@@ -92,6 +92,7 @@ $("resend").onclick = async (e) => { e.preventDefault(); const r = await post("/
 const STEPS = ["Request sent", "Accepted · pay $5", "Building", "Finished · pay the rest", "Complete"];
 function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 4, complete: 4 }[o.status] ?? 0; }
 function orderCard(o) {
+  const src = o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) : "");
   const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
   let ups = []; try { ups = JSON.parse(o.updates || "[]"); } catch {}
   const due = o.status === "awaiting deposit" ? "deposit" : o.status === "awaiting payment" ? "rest" : "";
@@ -103,9 +104,9 @@ function orderCard(o) {
     <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : esc(o.package) + (o.price ? " · $" + o.price : "")}</span></div><span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
     ${o.status === "cancelled" ? "" : `<div class="steps">${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done</p>`}
-    <div class="preview">${o.preview_url
-      ? `<div class="browser"><div class="dots"><b></b><b></b><b></b><span>${esc(o.preview_url.replace(/^https:\/\//, ""))}</span></div><iframe src="${esc(o.preview_url)}" loading="lazy" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe></div><a class="btn ghost" href="${esc(o.preview_url)}" target="_blank" rel="noopener noreferrer">Open full preview</a>`
-      : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your live preview appears here once we start building." : "Your preview is being prepared…"}</div></div>`}</div>
+    <div class="preview">${src
+      ? `<div class="browser"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : "Live preview · " + esc(o.kind || "your website")}</span><span class="livetag">● LIVE</span></div><iframe src="${esc(src)}" loading="lazy" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div><a class="btn ghost" href="${esc(src)}" target="_blank" rel="noopener noreferrer">Open full preview</a>`
+      : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your website will appear here, live, once we start building." : "Your website preview is being prepared…"}</div></div>`}</div>
     ${pay}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;

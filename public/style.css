@@ -120,3 +120,4 @@ h2.left{text-align:left;margin:8px 0 14px}
 footer{text-align:left;max-width:1120px;margin:80px auto 0;padding:40px 6vw;border-top:1px solid var(--line)}
 .fgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:24px}.fgrid div>b{display:block;margin-bottom:8px;color:var(--text)}.fgrid div>a:not(.logo){display:block;color:var(--muted);text-decoration:none;padding:3px 0}.fgrid a:hover{color:var(--text)}
 @media (max-width:860px){.split{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr 1fr}.crow{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:13px;padding:12px}}
+.browser iframe{height:560px}.livetag{margin-left:auto!important;color:#4ade80!important;font-weight:800;font-size:12px}

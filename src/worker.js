@@ -60,7 +60,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -227,9 +227,17 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid ${what}`, `${u.name} (${u.email}) says they paid ${what} for ${o.id}.\n\nCheck your payments, then update the order: ${SITE}/admin.html\n${o.status === "awaiting deposit" ? '(Set it to "building" and start making it.)' : '(Set it to "complete".)'}`);
     return json({ ok: true });
   }
+  // The live preview of a website being built (HTML the owner pasted on the admin page).
+  // Only its customer can open it, and it runs sandboxed so it can't touch their account.
+  if (path.startsWith("/api/preview/")) {
+    const u = await currentUser(env, req); if (!u) return new Response("Please log in.", { status: 401 });
+    const o = await db.prepare("SELECT preview_html FROM orders WHERE id = ? AND user_id = ?").bind(clip(path.slice(13), 20), u.id).first();
+    if (!o || !o.preview_html) return new Response("No preview yet.", { status: 404 });
+    return new Response(o.preview_html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "content-security-policy": "sandbox allow-scripts allow-forms allow-popups allow-modals", "x-robots-tag": "noindex" } });
+  }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, pay_link, note, progress, preview_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -250,8 +258,8 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       const note = clip(body.note, 1000);
       if (note && note !== old?.note) ups = [{ at: new Date().toISOString(), text: note }, ...ups].slice(0, 30);
       const pct = Math.max(0, Math.min(100, Math.round(+body.progress || 0)));
-      await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, updates = ?, updated_at = ? WHERE id = ?")
-        .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
+      await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, preview_html = COALESCE(?, preview_html), updates = ?, updated_at = ? WHERE id = ?")
+        .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), typeof body.preview_html === "string" ? clip(body.preview_html, 900000) : null, JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
       if (status && env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(status, clip(body.id, 20)).run().catch(() => {});
       if (status && old && status !== old.status) {
         await db.prepare("UPDATE orders SET claimed = '' WHERE id = ?").bind(clip(body.id, 20)).run();
