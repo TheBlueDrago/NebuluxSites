@@ -738,10 +738,12 @@ const SAFE = {
   "permissions-policy": "camera=(), microphone=(), geolocation=(), usb=()",
   "cross-origin-opener-policy": "same-origin-allow-popups",
 };
+// Only our own scripts, Stripe and Google Fonts can run or load on our pages; nothing can frame them.
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
 function secure(res) {
   const r = new Response(res.body, res);
   for (const [k, v] of Object.entries(SAFE)) if (!r.headers.has(k)) r.headers.set(k, v);
-  if (!r.headers.has("content-security-policy")) r.headers.set("content-security-policy", "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
+  if (!r.headers.has("content-security-policy")) r.headers.set("content-security-policy", (r.headers.get("content-type") || "").includes("text/html") ? CSP : "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
   return r;
 }
 function sameSite(req, url) {
