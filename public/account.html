@@ -146,7 +146,7 @@ $("codeForm").onsubmit = async (e) => {
 $("resend").onclick = async (e) => { e.preventDefault(); const r = await post("/api/resend", { email: $("email").value }); $("codeErr").textContent = r.ok ? "A new code is on its way." : r.error; };
 
 const STEPS = ["Request sent", "Accepted · pay $5", "Building", "Finished · pay the rest", "Complete"];
-function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 4, complete: 4 }[o.status] ?? 0; }
+function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 5, complete: 5 }[o.status] ?? 0; }
 function orderCard(o) {
   const src = o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
   const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
