@@ -789,6 +789,8 @@ async function handle(req, env, url) {
       const open = p === "/logo.png" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
       if (!open && !(await isOwner(env, req))) {
         if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
+        // Google checking site ownership (Search Console) needs a normal answer, not "down".
+        if (/Google-Site-Verification|Googlebot/i.test(req.headers.get("user-agent") || "")) return page(DOWN(), 200);
         return page(DOWN(), 503, { "retry-after": "3600" });
       }
     }
