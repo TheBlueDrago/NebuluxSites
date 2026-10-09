@@ -33,7 +33,7 @@
   <div class="marquee"><div><span>Bakeries</span><span>Portfolios</span><span>Online stores</span><span>Sports clubs</span><span>Restaurants</span><span>Startups</span><span>Barbers</span><span>Photographers</span><span>Tutors</span><span>Bands</span><span>Bakeries</span><span>Portfolios</span><span>Online stores</span><span>Sports clubs</span><span>Restaurants</span><span>Startups</span><span>Barbers</span><span>Photographers</span><span>Tutors</span><span>Bands</span></div></div>
 
   <div class="feats">
-    <div class="feat reveal"><div class="ico">⚡</div><b>Fast</b><p>Top-priority sites ready in 3–7 days.</p></div>
+    <div class="feat reveal"><div class="ico">⚡</div><b>Fast</b><p>Top-priority sites ready in 1–2 weeks.</p></div>
     <div class="feat reveal"><div class="ico">📱</div><b>Looks great on phones</b><p>Every site works on any screen.</p></div>
     <div class="feat reveal"><div class="ico">👀</div><b>Watch it live</b><p>Progress bar and live preview on your account.</p></div>
     <div class="feat reveal"><div class="ico">💬</div><b>Changes included</b><p>We tweak it until you love it.</p></div>
@@ -69,7 +69,7 @@
     <div class="crow"><span>Price</span><i class="y">From $199</i><i class="m">Your time + monthly fees</i><i class="n">$2,000+</i></div>
     <div class="crow"><span>Live progress + preview</span><i class="y">✓</i><i class="n">✕</i><i class="m">Sometimes</i></div>
     <div class="crow"><span>Pay as you go</span><i class="y">$5 to start</i><i class="m">—</i><i class="n">Big deposit</i></div>
-    <div class="crow"><span>Ready in</span><i class="y">Days</i><i class="m">Weeks of your time</i><i class="n">Months</i></div>
+    <div class="crow"><span>Ready in</span><i class="y">1–4 weeks</i><i class="m">Weeks of your time</i><i class="n">Months</i></div>
   </div>
 
   <h2 id="pricing">Simple pricing</h2><p class="sub">Pay all at once or month by month. No surprises.</p>
@@ -82,7 +82,7 @@
   </div>
 
   <h2 id="faq">Questions</h2>
-  <details><summary>How long does it take?</summary><p>It depends on your plan. One time ($199) is top priority: about 3–7 days. 3 months ($75/month): about 1–2 weeks. 5 months ($49/month) is lower priority: about 2–3 weeks.</p></details>
+  <details><summary>How long does it take?</summary><p>It depends on your plan. One time ($199) is top priority: about 1–2 weeks. 3 months ($75/month): about 2–3 weeks. 5 months ($49/month) is standard priority: about 1 month. These are estimates, not guarantees.</p></details>
   <details><summary>Can I ask for changes?</summary><p>Yes. We show you the site before it goes live and make changes until you're happy with it.</p></details>
   <details><summary>How do I pay?</summary><p>Sending a request is free. When we accept it, you pay $5 (it comes off your price). When your website is finished, you pay the rest. We email you each time, and the Pay buttons are on your account page.</p></details>
   <details><summary>Do I need to know how to code?</summary><p>Not at all. Just tell us what you want in your own words.</p></details>
@@ -94,7 +94,7 @@
     <a class="btn" href="/account.html">Get started</a>
   </section>
 </main>
-<footer><div class="fgrid"><div><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><p class="muted" style="margin-top:8px;max-width:280px">Done-for-you websites from the team behind Nebulux AI.</p></div><div><b>Product</b><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#examples">Examples</a></div><div><b>Account</b><a href="/account.html">Log in</a><a href="/account.html?package=onetime">Start a website</a></div><div><b>More</b><a href="https://nebuluxai.com">Nebulux AI</a><a href="#faq">FAQ</a></div></div><p class="muted" style="margin-top:30px">© 2026 Nebulux Sites</p></footer>
+<footer><div class="fgrid"><div><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><p class="muted" style="margin-top:8px;max-width:280px">Done-for-you websites from the team behind Nebulux AI.</p></div><div><b>Product</b><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#examples">Examples</a></div><div><b>Account</b><a href="/account.html">Log in</a><a href="/account.html?package=onetime">Start a website</a></div><div><b>More</b><a href="https://nebuluxai.com">Nebulux AI</a><a href="#faq">FAQ</a><a href="/legal.html#terms">Terms of Service</a><a href="/legal.html#privacy">Privacy Policy</a></div></div><p class="muted" style="margin-top:30px">© 2026 Nebulux Sites</p></footer>
 <script>
 fetch("/api/packages").then((r) => r.json()).then(({ packages }) => {
   document.getElementById("prices").innerHTML = Object.entries(packages).map(([id, p]) =>

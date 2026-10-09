@@ -7,9 +7,9 @@
 // The packages and prices (US dollars). Change them here.
 // price = the total; each plan's label says how it's paid.
 export const PACKAGES = {
-  monthly5: { name: "5 months", price: 245, label: "$49/month", small: "for 5 months", priority: "Standard priority", time: "about 2–3 weeks", blurb: "Pay a little at a time: $49 a month for 5 months. Lower priority, so it takes the longest." },
-  monthly3: { name: "3 months", price: 225, label: "$75/month", small: "for 3 months", priority: "Faster priority", time: "about 1–2 weeks", blurb: "$75 a month for 3 months. We start sooner than the 5-month plan." },
-  onetime: { name: "One time", price: 199, label: "$199", small: "one time", priority: "Top priority", time: "about 3–7 days", blurb: "Pay once and save. Your site goes first in line, so it's ready fastest." },
+  monthly5: { name: "5 months", price: 245, label: "$49/month", small: "for 5 months", priority: "Standard priority", time: "about 1 month", blurb: "Pay a little at a time: $49 a month for 5 months. Lower priority, so it takes the longest." },
+  monthly3: { name: "3 months", price: 225, label: "$75/month", small: "for 3 months", priority: "Faster priority", time: "about 2–3 weeks", blurb: "$75 a month for 3 months. We start sooner than the 5-month plan." },
+  onetime: { name: "One time", price: 199, label: "$199", small: "one time", priority: "Top priority", time: "about 1–2 weeks", blurb: "Pay once and save. Your site goes first in line, so it's ready fastest." },
 };
 const DEPOSIT = 5;
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
