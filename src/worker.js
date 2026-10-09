@@ -11,7 +11,8 @@ export const PACKAGES = {
   store: { name: "Online Store", price: 199, blurb: "A shop with products, a cart and checkout." },
   custom: { name: "Custom", price: 0, blurb: "Something bigger? Tell us and we'll send a quote." },
 };
-const STATUSES = ["awaiting payment", "paid", "building", "done", "cancelled"];
+const DEPOSIT = 5;
+const STATUSES = ["awaiting deposit", "awaiting payment", "paid", "building", "done", "cancelled"];
 
 const enc = new TextEncoder();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -162,10 +163,10 @@ async function api(req, env, path) {
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
-      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, clip(body.pages, 300), clip(body.deadline, 40), clip(body.links, 600), "awaiting payment", now, now).run();
+      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, clip(body.pages, 300), clip(body.deadline, 40), clip(body.links, 600), "awaiting deposit", now, now).run();
     if (env.RESEND_API_KEY && env.OWNER_EMAIL) {
       fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [env.OWNER_EMAIL], subject: `New order ${id}: ${pkg.name}`, text: `${u.name} (${u.email}) ordered ${pkg.name}.\n\n${details}\n\nOpen the admin page to send them a payment link.` }) }).catch(() => {});
+        body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [env.OWNER_EMAIL], subject: `New order ${id}: ${pkg.name}`, text: `${u.name} (${u.email}) ordered ${pkg.name}.\n\n${details}\n\nOpen the admin page and send them the $5 request payment link.` }) }).catch(() => {});
     }
     return json({ ok: true, id });
   }
@@ -186,7 +187,7 @@ async function api(req, env, path) {
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
       const prev = String(body.preview_url || "").trim();
-      if (prev && !/^https:///.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
+      if (prev && !/^https:\/\//.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
       const old = await db.prepare("SELECT note, updates FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
       let ups = []; try { ups = JSON.parse(old?.updates || "[]"); } catch {}
       const note = clip(body.note, 1000);
