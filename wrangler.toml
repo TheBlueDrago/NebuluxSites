@@ -1,4 +1,5 @@
 # Nebulux Sites. Deploy: npx wrangler deploy
+keep_vars = true
 # Secrets to add (Cloudflare dashboard -> this Worker -> Settings -> Variables and secrets, or `npx wrangler secret put NAME`):
 #   RESEND_API_KEY  sends the sign-in codes (the same Resend key as Nebulux AI works)
 #   ADMIN_KEY       a long password of your choice for /admin.html
