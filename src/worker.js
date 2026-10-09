@@ -205,7 +205,7 @@ async function api(req, env, path) {
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
       .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
     if (env.AIDB) await env.AIDB.batch([
-      env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT)"),
+      env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT, status TEXT DEFAULT 'in review')"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
     ]).catch(() => {});
     await mail(env, env.OWNER_EMAIL, `New request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}).
@@ -222,11 +222,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!o || !["awaiting deposit", "awaiting payment"].includes(o.status)) return json({ error: "Nothing to pay right now." }, 400);
     await db.prepare("UPDATE orders SET claimed = ?, updated_at = ? WHERE id = ?").bind(o.status, new Date().toISOString(), o.id).run();
     const what = o.status === "awaiting deposit" ? "the $5 request fee" : "the rest of the price";
-    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid ${what}`, `${u.name} (${u.email}) says they paid ${what} for ${o.id}.
-
-Check your payments, then update the order: ${SITE}/admin.html${o.status === "awaiting deposit" ? "
-(Set it to \"building\" and start making it.)" : "
-(Set it to \"complete\".)"}`);
+    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid ${what}`, `${u.name} (${u.email}) says they paid ${what} for ${o.id}.\n\nCheck your payments, then update the order: ${SITE}/admin.html\n${o.status === "awaiting deposit" ? '(Set it to "building" and start making it.)' : '(Set it to "complete".)'}`);
     return json({ ok: true });
   }
   if (path === "/api/orders") {
@@ -254,6 +250,7 @@ Check your payments, then update the order: ${SITE}/admin.html${o.status === "aw
       const pct = Math.max(0, Math.min(100, Math.round(+body.progress || 0)));
       await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, updates = ?, updated_at = ? WHERE id = ?")
         .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
+      if (status && env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(status, clip(body.id, 20)).run().catch(() => {});
       if (status && old && status !== old.status) {
         await db.prepare("UPDATE orders SET claimed = '' WHERE id = ?").bind(clip(body.id, 20)).run();
         const hi = `Hi ${old.name || "there"},
