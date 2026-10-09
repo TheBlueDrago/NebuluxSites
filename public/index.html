@@ -18,7 +18,7 @@
       <h1>Your website,<br><span class="grad">built for you.</span></h1>
       <p>Tell us what you want. We design and build a fast, beautiful website, and you watch it come to life with a live preview.</p>
       <div class="row"><a class="btn big" href="/account.html">Start my website →</a><a class="btn ghost big" href="#examples">See our work</a></div>
-      <p class="tiny">Free to send a request · $5 to start · pay the rest when it's done</p>
+      <p class="tiny">Free to send a request · $5 to start · pay the rest and get your ZIP when it's done</p>
     </div>
     <div class="hero-demo reveal">
       <div class="browser demo"><div class="dots"><b></b><b></b><b></b><span>yourwebsite.com</span></div>
@@ -43,7 +43,7 @@
   <div class="grid">
     <div class="card"><div class="step">1</div><h3>Tell us what you want</h3><p>Make an account and describe your website: what it's for, colors you like and any sites you love. Sending a request is free.</p></div>
     <div class="card"><div class="step">2</div><h3>We accept it, you pay $5</h3><p>We email you when we accept your request. Pay $5 to continue (it comes off your price), and we start building.</p></div>
-    <div class="card"><div class="step">3</div><h3>We build it, you pay the rest</h3><p>When it's finished we email you. Pay the rest and it's yours. Watch the progress bar and a live preview of your site on your account page, and ask for changes until you love it.</p></div>
+    <div class="card"><div class="step">3</div><h3>We build it, you get a ZIP</h3><p>Watch a live preview while we build. When it's finished, pay the rest and download your website as a ZIP file, with step-by-step instructions to put it online.</p></div>
   </div>
 
   <section class="split reveal">
@@ -58,6 +58,21 @@
       <div class="steps"><div class="done"><i>✓</i><span>Request sent</span></div><div class="done"><i>✓</i><span>Accepted</span></div><div class="now"><i>3</i><span>Building</span></div><div><i>4</i><span>Finished</span></div><div><i>5</i><span>Complete</span></div></div>
       <div class="bar"><div style="width:68%"></div></div><p class="muted" style="margin-top:6px">68% done</p>
       <ul class="tl" style="margin-top:14px"><li><span class="muted">Today</span><br>Menu page and cart are done. Working on checkout!</li></ul>
+    </div>
+  </section>
+
+  <section class="split reveal" id="youget">
+    <div>
+      <span class="eyebrow">What you get</span>
+      <h2 class="left">Your website in a ZIP file</h2>
+      <p class="muted">When it's finished, you download your whole website as one ZIP file. You put it online on your own domain and hosting, and we give you all the details to do it.</p>
+      <ul class="checks"><li>The ZIP file with every page, picture and file</li><li>Step-by-step instructions to upload it</li><li>How to connect your domain</li></ul>
+      <p class="muted" style="margin-top:14px;font-size:14px">You buy your own domain and hosting. They aren't included in the price.</p>
+    </div>
+    <div class="zipcard">
+      <div class="zipico">🗂️</div>
+      <b>golden-batch-website.zip</b><span class="muted">index.html · menu.html · images/ · styles.css</span>
+      <ol><li>Buy a domain and hosting</li><li>Upload the ZIP</li><li>Connect your domain. You're live!</li></ol>
     </div>
   </section>
 
@@ -86,7 +101,8 @@
   <details><summary>Can I ask for changes?</summary><p>Yes. We show you the site before it goes live and make changes until you're happy with it.</p></details>
   <details><summary>How do I pay?</summary><p>Sending a request is free. When we accept it, you pay $5 (it comes off your price). When your website is finished, you pay the rest. We email you each time, and the Pay buttons are on your account page.</p></details>
   <details><summary>Do I need to know how to code?</summary><p>Not at all. Just tell us what you want in your own words.</p></details>
-  <details><summary>Can I use my own domain (like mybakery.com)?</summary><p>Yes. Tell us your domain in your request and we'll connect it for you.</p></details>
+  <details><summary>What do I get at the end?</summary><p>A ZIP file with your whole website: every page, picture and file. You upload it to your own hosting, and we give you clear, step-by-step instructions for how to do it.</p></details>
+  <details><summary>Do you buy the domain and hosting for me?</summary><p>No. You buy your own domain (like mybakery.com) and hosting, for example from Cloudflare, Netlify, GoDaddy or Hostinger. Our price is for building the website. We tell you exactly how to upload it and connect your domain.</p></details>
 
   <section class="cta reveal">
     <h1 style="font-size:clamp(28px,4vw,44px);letter-spacing:-.02em">Ready for your website?</h1>
@@ -105,5 +121,6 @@ const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting &
 function watch() { document.querySelectorAll(".reveal:not(.in), .grid > .card, .ex").forEach((el) => { el.classList.add("reveal"); io.observe(el); }); }
 watch();
 </script>
+<script src="/help.js" defer></script>
 </body>
 </html>

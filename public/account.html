@@ -37,7 +37,7 @@
   <div id="app" style="display:none">
     <div class="box wide">
       <h2 style="margin:0 0 6px;text-align:left">Order a website</h2>
-      <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished.</p>
+      <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished. You get your website as a ZIP file with instructions; you buy your own domain and hosting.</p>
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
         <label>What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
@@ -108,6 +108,7 @@ function orderCard(o) {
       ? `<div class="browser"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : "Live preview · " + esc(o.kind || "your website")}</span><span class="livetag">● LIVE</span></div><iframe src="${esc(src)}" loading="lazy" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div><a class="btn ghost" href="${esc(src)}" target="_blank" rel="noopener noreferrer">Open full preview</a>`
       : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your website will appear here, live, once we start building." : "Your website preview is being prepared…"}</div></div>`}</div>
     ${pay}
+    ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a></div>` : ""}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -141,5 +142,6 @@ const cq = new URLSearchParams(location.search).get("code");
 if (gq) setTimeout(() => { $("authErr").textContent = gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
 start();
 </script>
+<script src="/help.js" defer></script>
 </body>
 </html>
