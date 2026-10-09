@@ -86,3 +86,12 @@ details.msgs{max-width:none;margin:16px 0 0}
 .dhow b{display:block}.dhow span{font-size:13px;color:var(--muted)}
 @media (max-width:860px){.dhow{grid-template-columns:1fr 1fr}.dhero{padding:20px}}
 @media (prefers-reduced-motion:reduce){.dmain::before,.dhero::after,.bar div,.dorb,.dmain>div{animation:none}}
+/* order form polish */
+#reqBox{border-radius:28px;padding:32px}
+#reqBox input,#reqBox textarea,#reqBox select{transition:border-color .2s,box-shadow .2s}
+#reqBox input:focus,#reqBox textarea:focus,#reqBox select:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 4px rgba(209,108,245,.18)}
+#reqBox label{font-weight:600}
+.total{position:sticky;bottom:12px;z-index:5;padding:14px 18px;border-radius:18px;background:rgba(18,14,40,.85);backdrop-filter:blur(14px);border:1px solid rgba(209,108,245,.35);box-shadow:0 20px 50px -20px rgba(0,0,0,.8)}
+.total:empty{display:none}
+.addons label{transition:border-color .2s,background .2s,transform .2s}.addons label:hover{transform:translateY(-2px)}
+.dside{box-shadow:0 30px 80px -40px rgba(120,70,255,.6),inset 0 1px 0 rgba(255,255,255,.08)}
