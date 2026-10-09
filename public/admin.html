@@ -9,6 +9,7 @@
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
@@ -18,7 +19,6 @@
     <div class="row" style="margin-top:10px"><input id="pcode" placeholder="CODE" maxlength="24" style="width:150px;text-transform:uppercase"><input id="ppct" type="number" min="1" max="100" placeholder="% off" style="width:100px"><input id="pmax" type="number" min="0" placeholder="Max uses (0 = no limit)" style="width:200px"><input id="pdays" type="number" min="0" placeholder="Days it works (0 = forever)" style="width:210px"><button class="btn" id="padd">Add code</button></div>
     <p class="err" id="perr"></p><div id="plist"></div>
   </div>
-  <div class="box wide" id="list" style="display:none"></div>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
