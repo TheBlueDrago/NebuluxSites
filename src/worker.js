@@ -298,6 +298,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     ]);
     if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
     await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} by card.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete. Add the ZIP link on the admin page if you haven't."}\n\n${SITE}/admin.html`);
+    if (next === "complete" && !o.github && !o.zip_url) await mail(env, env.OWNER_EMAIL, `${o.id} is paid but has no ZIP!`, `${u.name} (${u.email}) paid in full for ${o.id}, but there's no GitHub repo or ZIP link for it, so they can't download their website. Add it now on the admin page:\n\n${SITE}/admin.html`);
     await mail(env, u.email, `Payment received for ${o.id}`, `Hi ${u.name || "there"},\n\nWe got your payment of $${paid.toFixed(2)} (${bill.label}). Thank you!\n\n${bill.due === "deposit" ? "We're starting on your website now. You can watch the live preview on your account page." : left > 0 ? `$${left.toFixed(2)} is left to pay.` : "Your website is fully paid. Download it from your account page."}\n\n${SITE}/account.html\n\nNebulux Sites`);
     return json({ ok: true, status: next, left });
   }
@@ -408,6 +409,11 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     }
     if (path === "/api/admin/order" && req.method === "POST") {
       const status = STATUSES.includes(body.status) ? body.status : null;
+      if (status === "awaiting payment" || status === "complete") {
+        const cur = await db.prepare("SELECT github, zip_url FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
+        const hasZip = (cur && (cur.github || cur.zip_url)) || ghRepo(body.github || "") || /^https:\/\//.test(String(body.zip_url || "").trim());
+        if (!hasZip) return json({ error: "Connect the website's GitHub repo (or add a ZIP link) first, so the customer can download it after paying." }, 400);
+      }
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
       if (typeof body.github === "string") {
