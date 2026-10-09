@@ -140,3 +140,4 @@ details.msgs{max-width:none;margin:16px 0 0}
   .dside{border-radius:22px!important;border-left:1px solid var(--line)!important;padding:12px 6px!important}
   .dhero{padding:22px}
 }
+@media (max-width:640px){body:has(#app .dside) #helpBtn{left:auto!important;right:14px!important;opacity:.92}}
