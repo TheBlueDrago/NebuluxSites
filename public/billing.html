@@ -9,7 +9,7 @@
 .bill .box{margin:0}
 .amt{font-size:56px;font-weight:900;letter-spacing:-.02em;margin:8px 0 2px}
 .lines{margin:18px 0;border-top:1px solid var(--line)}.lines div{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);color:var(--muted)}.lines b{color:var(--text)}
-#pp{margin-top:20px;min-height:50px}
+.flab{display:block;font-weight:700;margin:18px 0 8px}.fbox{min-height:44px}.paybtn{width:100%;margin-top:22px;padding:16px;font-size:17px}
 .secure{display:flex;align-items:center;gap:8px;justify-content:center;color:var(--muted);font-size:13px;margin-top:14px}
 .done{text-align:center}.done .big{font-size:64px}
 </style>
@@ -50,28 +50,39 @@ async function start() {
       <div><span>Left after this</span><b>${money(Math.max(0, r.left - r.amount))}</b></div>
     </div>
     ${o.promo ? "" : `<form id="promoF" class="row" style="margin-top:4px"><input id="promoIn" placeholder="Promo code" maxlength="24" style="flex:1;min-width:140px;text-transform:uppercase"><button class="btn ghost">Apply</button></form><p class="muted" id="promoMsg" style="font-size:14px;margin-top:6px"></p>`}
-    <div id="pp"></div><p class="err" id="err"></p>
-    <div class="secure">🔒 Secure checkout with PayPal. Pay with your card or PayPal account. We never see your card details.</div>`;
+    <form id="payF">
+      <label class="flab">Card details</label><div id="cardEl" class="fbox"></div>
+      <label class="flab">Billing address</label><div id="addrEl" class="fbox"></div>
+      <button class="btn paybtn" id="payB" disabled>Pay ${money(r.amount)}</button>
+    </form><p class="err" id="err"></p>
+    <div class="secure">🔒 Encrypted card payment. Your card details go straight to our secure payment processor, never to our servers.</div>`;
   if ($("promoF")) $("promoF").onsubmit = async (e) => {
     e.preventDefault();
     const c = await post("/api/promo", { id, code: $("promoIn").value });
     if (!c.ok) { $("promoMsg").textContent = c.error || "That code isn't valid."; $("promoMsg").className = "err"; return; }
     start();
   };
-  if (!r.paypal) {
-    $("pp").innerHTML = r.pay_link ? `<a class="btn" style="width:100%" href="${esc(r.pay_link)}" target="_blank" rel="noopener noreferrer">Pay ${money(r.amount)}</a>` : `<p class="muted">Online payments are being set up. We'll email you as soon as you can pay here.</p>`;
+  if (!r.stripe) {
+    $("payF").innerHTML = r.pay_link ? `<a class="btn paybtn" href="${esc(r.pay_link)}" target="_blank" rel="noopener noreferrer">Pay ${money(r.amount)}</a>` : `<p class="muted">Card payments are being set up. We'll email you as soon as you can pay here.</p>`;
     return;
   }
-  const s = document.createElement("script");
-  s.src = "https://www.paypal.com/sdk/js?client-id=" + encodeURIComponent(r.paypal) + "&currency=USD&intent=capture";
-  s.onload = () => paypal.Buttons({
-    style: { shape: "pill", color: "gold", label: "pay", height: 48 },
-    createOrder: async () => { $("err").textContent = ""; const c = await post("/api/pay/create", { id }); if (!c.ok) { $("err").textContent = c.error; throw new Error(c.error); } return c.ppid; },
-    onApprove: async (d) => { $("pp").innerHTML = '<p class="muted">Confirming your payment…</p>'; const c = await post("/api/pay/capture", { id, ppid: d.orderID }); if (c.ok) done(c); else { $("err").textContent = c.error || "The payment didn't go through."; setTimeout(start, 2500); } },
-    onError: () => { $("err").textContent = "PayPal had a problem. Please try again."; },
-  }).render("#pp");
-  s.onerror = () => { $("err").textContent = "Couldn't load PayPal. Check your internet and refresh."; };
-  document.head.appendChild(s);
+  const load = () => new Promise((ok, no) => { if (window.Stripe) return ok(); const s = document.createElement("script"); s.src = "https://js.stripe.com/v3/"; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+  try { await load(); } catch (e) { $("err").textContent = "Couldn't load the card form. Check your internet and refresh."; return; }
+  const c = await post("/api/pay/intent", { id });
+  if (!c.ok) { $("err").textContent = c.error || "Couldn't start the payment."; return; }
+  const stripe = Stripe(r.stripe);
+  const elements = stripe.elements({ clientSecret: c.secret, appearance: { theme: "night", variables: { colorPrimary: "#d16cf5", colorBackground: "#100d26", colorText: "#f5f3ff", colorTextSecondary: "#a9a3cf", colorDanger: "#ff8a80", fontFamily: "Inter, system-ui, sans-serif", borderRadius: "12px", spacingUnit: "4px" }, rules: { ".Input": { border: "1px solid rgba(255,255,255,.12)", boxShadow: "none" }, ".Input:focus": { border: "1px solid #d16cf5", boxShadow: "0 0 0 3px rgba(209,108,245,.2)" }, ".Tab": { border: "1px solid rgba(255,255,255,.12)" } } } });
+  elements.create("payment", { layout: "tabs", fields: { billingDetails: { address: "never" } }, wallets: { applePay: "auto", googlePay: "auto" } }).mount("#cardEl");
+  const addr = elements.create("address", { mode: "billing", defaultValues: { name: r.name || "" } }); addr.mount("#addrEl");
+  $("payB").disabled = false;
+  $("payF").onsubmit = async (e) => {
+    e.preventDefault(); $("err").textContent = ""; $("payB").disabled = true; $("payB").textContent = "Paying…";
+    const a = await addr.getValue();
+    const res = await stripe.confirmPayment({ elements, redirect: "if_required", confirmParams: { receipt_email: r.email, payment_method_data: { billing_details: { name: a.value.name, email: r.email, address: a.value.address } } } });
+    if (res.error) { $("err").textContent = res.error.message || "The payment didn't go through."; $("payB").disabled = false; $("payB").textContent = "Pay " + money(r.amount); return; }
+    const k = await post("/api/pay/confirm", { id, pi: res.paymentIntent.id });
+    if (k.ok) done(k); else { $("err").textContent = k.error || "We couldn't confirm the payment. Contact us if you were charged."; }
+  };
 }
 start();
 </script>

@@ -62,13 +62,6 @@ function billFor(o) {
   }
   return { due: "", amount: 0, label: "", paid, left };
 }
-const paypalBase = (env) => (env.PAYPAL_ENV === "sandbox" ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com");
-async function paypalToken(env) {
-  const r = await fetch(paypalBase(env) + "/v1/oauth2/token", {
-    method: "POST", headers: { authorization: "Basic " + btoa(env.PAYPAL_CLIENT_ID + ":" + env.PAYPAL_SECRET), "content-type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials",
-  }).then((x) => x.json()).catch(() => ({}));
-  return r.access_token || "";
-}
 
 let ready = false;
 async function ensure(db) {
@@ -242,43 +235,40 @@ ${details}
 Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" and add the $5 payment link).`);
     return json({ ok: true, id });
   }
-  // ---- billing: pay the $5 starting fee and the rest with PayPal ----
-  // Amounts always come from the order on the server, never from the browser. A payment only
-  // counts after PayPal says it's COMPLETED for the right order and the right amount.
-  // Secrets: PAYPAL_CLIENT_ID, PAYPAL_SECRET; PAYPAL_ENV = "sandbox" to test (live by default).
-  if (path === "/api/billing" || path === "/api/pay/create" || path === "/api/pay/capture") {
+  // ---- billing: our own card form (card + billing address) on the Billing page ----
+  // The card fields are Stripe's secure inputs styled as ours, so card numbers never touch this
+  // server (that's required for taking cards). Amounts always come from the order here, never
+  // from the browser, and a payment only counts after Stripe says it SUCCEEDED for the right
+  // order and amount. Money goes to the Stripe balance, which pays out to the owner's debit card
+  // or bank. Secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY.
+  if (path === "/api/billing" || path === "/api/pay/intent" || path === "/api/pay/confirm") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
     const o = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
     if (!o) return json({ error: "We couldn't find that order." }, 404);
     const bill = billFor(o);
     if (path === "/api/billing") {
-      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, paypal: env.PAYPAL_CLIENT_ID || "", pay_link: o.pay_link || "" });
+      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, stripe: env.STRIPE_PUBLISHABLE_KEY || "", pay_link: o.pay_link || "", email: u.email, name: u.name });
     }
-    if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_SECRET) return json({ error: "Online payments aren't set up yet." }, 503);
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PUBLISHABLE_KEY) return json({ error: "Card payments aren't set up yet." }, 503);
     if (!bill.amount) return json({ error: "Nothing to pay right now." }, 400);
     if (!(await allow("pay:" + u.id, 30, 3600))) return json({ error: "Too many tries. Please wait a bit." }, 429);
-    const token = await paypalToken(env);
-    if (!token) return json({ error: "Payments are having trouble. Please try again soon." }, 502);
-    const PP = paypalBase(env);
-    if (path === "/api/pay/create") {
-      const r = await fetch(PP + "/v2/checkout/orders", {
-        method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" },
-        body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ reference_id: o.id, custom_id: o.id + ":" + bill.due, description: `Nebulux Sites ${o.id}: ${bill.label}`, amount: { currency_code: "USD", value: bill.amount.toFixed(2) } }] }),
-      }).then((x) => x.json()).catch(() => ({}));
-      if (!r.id) return json({ error: "Couldn't start the payment. Please try again." }, 502);
-      return json({ ppid: r.id });
+    const stripe = (p, form) => fetch("https://api.stripe.com/v1/" + p, { method: form ? "POST" : "GET", headers: { authorization: "Bearer " + env.STRIPE_SECRET_KEY, ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}) }, body: form ? new URLSearchParams(form) : undefined }).then((x) => x.json()).catch(() => ({}));
+    const cents = Math.round(bill.amount * 100);
+    if (path === "/api/pay/intent") {
+      const pi = await stripe("payment_intents", { amount: String(cents), currency: "usd", "automatic_payment_methods[enabled]": "true", description: `Nebulux Sites ${o.id}: ${bill.label}`, receipt_email: u.email, "metadata[order_id]": o.id, "metadata[due]": bill.due, "metadata[user_id]": u.id });
+      if (!pi.client_secret) return json({ error: "Couldn't start the payment. Please try again." }, 502);
+      return json({ secret: pi.client_secret });
     }
-    // capture
-    const ppid = String(body.ppid || "").replace(/[^A-Z0-9]/gi, "").slice(0, 40);
-    if (!ppid) return json({ error: "Missing payment." }, 400);
+    // confirm: check with Stripe that it really went through
+    const ppid = String(body.pi || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 60);
+    if (!ppid.startsWith("pi_")) return json({ error: "Missing payment." }, 400);
     if (await db.prepare("SELECT 1 FROM payments WHERE ppid = ?").bind(ppid).first()) return json({ ok: true, already: true });
-    const r = await fetch(PP + `/v2/checkout/orders/${ppid}/capture`, { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" } }).then((x) => x.json()).catch(() => ({}));
-    const cap = r?.purchase_units?.[0]?.payments?.captures?.[0];
-    const paid = Number(cap?.amount?.value || 0);
-    if (r.status !== "COMPLETED" || !cap || cap.status !== "COMPLETED" || cap.amount?.currency_code !== "USD" || cap.custom_id !== o.id + ":" + bill.due || Math.abs(paid - bill.amount) > 0.001) {
-      return json({ error: "The payment didn't go through. You weren't charged for it here; please try again or contact us." }, 400);
+    const pi = await stripe("payment_intents/" + ppid);
+    if (pi.status !== "succeeded" || pi.currency !== "usd" || pi.amount_received !== cents || !pi.metadata || pi.metadata.order_id !== o.id || pi.metadata.due !== bill.due) {
+      return json({ error: pi.status === "processing" ? "Your payment is still processing. Check back in a minute." : "The payment didn't go through. Please try again." }, 400);
     }
+    const paid = pi.amount_received / 100;
     const now = new Date().toISOString();
     const total = (o.paid_total || 0) + paid;
     const left = Math.max(0, (o.price || 0) - total);
@@ -288,7 +278,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       db.prepare("UPDATE orders SET paid_total = ?, status = ?, claimed = '', updated_at = ? WHERE id = ?").bind(total, next, now, o.id),
     ]);
     if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
-    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} with PayPal.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete. Add the ZIP link on the admin page if you haven't."}\n\n${SITE}/admin.html`);
+    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} by card.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete. Add the ZIP link on the admin page if you haven't."}\n\n${SITE}/admin.html`);
     await mail(env, u.email, `Payment received for ${o.id}`, `Hi ${u.name || "there"},\n\nWe got your payment of $${paid.toFixed(2)} (${bill.label}). Thank you!\n\n${bill.due === "deposit" ? "We're starting on your website now. You can watch the live preview on your account page." : left > 0 ? `$${left.toFixed(2)} is left to pay.` : "Your website is fully paid. Download it from your account page."}\n\n${SITE}/account.html\n\nNebulux Sites`);
     return json({ ok: true, status: next, left });
   }

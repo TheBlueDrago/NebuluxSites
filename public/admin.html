@@ -37,7 +37,7 @@ async function load() {
       <div class="row" style="margin-top:8px">
         <select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
         <input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px">
-        <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link (only if PayPal isn't set up)" style="flex:1;min-width:200px">
+        <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link (only if card payments aren't set up)" style="flex:1;min-width:200px">
       </div>
       <div class="row" style="margin-top:8px"><label style="margin:0">Progress</label><input data-g="${esc(o.id)}" type="number" min="0" max="100" value="${o.progress || 0}" style="width:90px">%<input data-v="${esc(o.id)}" value="${esc(o.preview_url)}" placeholder="Preview link (https://…)" style="flex:1;min-width:200px"></div>
       <label style="margin:10px 0 4px">Live preview: paste the website's HTML (or load a file). The customer sees it on their account.</label>
