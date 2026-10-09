@@ -17,10 +17,28 @@ const DEPOSIT = 5;
 // it's finished; you get an email for every new request and every "I've paid".
 const STATUSES = ["in review", "awaiting deposit", "building", "awaiting payment", "complete", "cancelled"];
 const SITE = "https://nebuluxsites.thebluedragonstriker.workers.dev";
+// Every email also has a branded HTML version: the text in a card, links turned into buttons.
+function mailHtml(subject, text) {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const body = esc(text).split(/\n{2,}/).map((p) => {
+    const link = p.match(/^(.*?)(https:\/\/\S+)\s*$/s);
+    if (link && link[2].startsWith(SITE)) {
+      const label = /billing/.test(link[2]) ? "Pay now" : /admin/.test(link[2]) ? "Open the admin page" : "Open my account";
+      return (link[1].trim() ? `<p style="margin:0 0 14px">${link[1].trim().replace(/\n/g, "<br>")}</p>` : "") + `<p style="margin:6px 0 18px"><a href="${link[2]}" style="display:inline-block;padding:13px 22px;border-radius:12px;background:linear-gradient(100deg,#6b5bff,#d16cf5);color:#fff;font-weight:700;text-decoration:none">${label} &rarr;</a></p>`;
+    }
+    return `<p style="margin:0 0 14px">${p.replace(/\n/g, "<br>")}</p>`;
+  }).join("");
+  return `<div style="background:#0b0920;padding:32px 14px;font-family:Inter,Segoe UI,Arial,sans-serif"><div style="max-width:520px;margin:0 auto">
+<p style="margin:0 0 18px;font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em">Nebulux Sites</p>
+<div style="background:#16132e;border:1px solid #2c2654;border-radius:20px;padding:26px;color:#e9e5ff;font-size:16px;line-height:1.6">
+<p style="margin:0 0 16px;font-size:20px;font-weight:800;color:#fff">${esc(subject)}</p>${body}</div>
+<p style="margin:18px 4px 0;color:#8b84b8;font-size:12px">You're getting this because of your Nebulux Sites account. <a href="${SITE}/legal.html#privacy" style="color:#c4b5fd">Privacy</a></p>
+</div></div>`;
+}
 async function mail(env, to, subject, text) {
   if (!env.RESEND_API_KEY || !to) return;
   await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [to], subject, text }) }).catch(() => {});
+    body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [to], subject, text, html: mailHtml(subject, text) }) }).catch(() => {});
 }
 
 const enc = new TextEncoder();
