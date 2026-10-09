@@ -63,6 +63,22 @@ function billFor(o) {
   return { due: "", amount: 0, label: "", paid, left };
 }
 
+// The website being built lives in a GitHub repo ("owner/repo"); the live preview and the ZIP come
+// straight from it, so every push updates the customer's preview by itself. Public repos work as
+// is; for private ones add a GITHUB_TOKEN secret (read-only access to the repo's contents).
+function ghRepo(v) {
+  const m = String(v || "").trim().replace(/\.git$/, "").match(/^(?:https?:\/\/github\.com\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/);
+  return m ? m[1] + "/" + m[2] : "";
+}
+const TYPES = { html: "text/html; charset=utf-8", htm: "text/html; charset=utf-8", css: "text/css", js: "text/javascript", mjs: "text/javascript", json: "application/json", svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", ico: "image/x-icon", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf", mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", txt: "text/plain; charset=utf-8", xml: "application/xml" };
+async function ghFile(env, repo, file) {
+  const enc = file.split("/").map(encodeURIComponent).join("/");
+  const r = env.GITHUB_TOKEN
+    ? await fetch(`https://api.github.com/repos/${repo}/contents/${enc}`, { headers: { authorization: "Bearer " + env.GITHUB_TOKEN, accept: "application/vnd.github.raw", "user-agent": "nebulux-sites" } })
+    : await fetch(`https://raw.githubusercontent.com/${repo}/HEAD/${enc}`, { headers: { "user-agent": "nebulux-sites" }, cf: { cacheTtl: 30 } });
+  return r.ok ? r : null;
+}
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -76,7 +92,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -318,9 +334,35 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   // Only its customer can open it, and it runs sandboxed so it can't touch their account.
   if (path.startsWith("/api/preview/")) {
     const u = await currentUser(env, req); if (!u) return new Response("Please log in.", { status: 401 });
-    const o = await db.prepare("SELECT preview_html FROM orders WHERE id = ? AND user_id = ?").bind(clip(path.slice(13), 20), u.id).first();
+    const rest = path.slice(13), slash = rest.indexOf("/");
+    const oid = clip(slash < 0 ? rest : rest.slice(0, slash), 20);
+    const o = await db.prepare("SELECT preview_html, github FROM orders WHERE id = ? AND user_id = ?").bind(oid, u.id).first();
+    const safe = { "cache-control": "no-store", "content-security-policy": "sandbox allow-scripts allow-forms allow-popups allow-modals", "x-robots-tag": "noindex" };
+    if (o && o.github) {
+      if (slash < 0) return new Response(null, { status: 302, headers: { location: "/api/preview/" + oid + "/" } });
+      let file = decodeURIComponent(rest.slice(slash + 1)).replace(/^\/+/, "");
+      if (file.split("/").includes("..")) return new Response("Not found", { status: 404 });
+      if (!file || file.endsWith("/")) file += "index.html";
+      let r = await ghFile(env, o.github, file);
+      if (!r && !/\.[a-z0-9]+$/i.test(file)) { file += "/index.html"; r = await ghFile(env, o.github, file); }
+      if (!r) return new Response("This page isn't built yet.", { status: 404, headers: safe });
+      const ext = (file.match(/\.([a-z0-9]+)$/i) || [])[1] || "html";
+      return new Response(r.body, { headers: { "content-type": TYPES[ext.toLowerCase()] || "application/octet-stream", ...safe } });
+    }
     if (!o || !o.preview_html) return new Response("No preview yet.", { status: 404 });
-    return new Response(o.preview_html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "content-security-policy": "sandbox allow-scripts allow-forms allow-popups allow-modals", "x-robots-tag": "noindex" } });
+    return new Response(o.preview_html, { headers: { "content-type": "text/html; charset=utf-8", ...safe } });
+  }
+  // The finished website as a ZIP, straight from its GitHub repo (only once it's complete).
+  if (path.startsWith("/api/zip/")) {
+    const u = await currentUser(env, req); if (!u) return new Response("Please log in.", { status: 401 });
+    const o = await db.prepare("SELECT id, github, status, kind FROM orders WHERE id = ? AND user_id = ?").bind(clip(path.slice(9), 20), u.id).first();
+    if (!o || !o.github || o.status !== "complete") return new Response("Your website isn't ready to download yet.", { status: 404 });
+    const r = env.GITHUB_TOKEN
+      ? await fetch(`https://api.github.com/repos/${o.github}/zipball`, { headers: { authorization: "Bearer " + env.GITHUB_TOKEN, "user-agent": "nebulux-sites" } })
+      : await fetch(`https://codeload.github.com/${o.github}/zip/HEAD`, { headers: { "user-agent": "nebulux-sites" } });
+    if (!r.ok) return new Response("Couldn't get your website right now. Try again in a minute.", { status: 502 });
+    const name = (String(o.kind || "website").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "website") + "-" + o.id.toLowerCase() + ".zip";
+    return new Response(r.body, { headers: { "content-type": "application/zip", "content-disposition": `attachment; filename="${name}"`, "cache-control": "no-store" } });
   }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
@@ -329,7 +371,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0) AS has_preview, CASE WHEN status = 'complete' THEN zip_url ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -361,6 +403,11 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       const status = STATUSES.includes(body.status) ? body.status : null;
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
+      if (typeof body.github === "string") {
+        const repo = ghRepo(body.github);
+        if (body.github.trim() && !repo) return json({ error: "Use the repo like owner/repo or its github.com link." }, 400);
+        await db.prepare("UPDATE orders SET github = ? WHERE id = ?").bind(repo, clip(body.id, 20)).run();
+      }
       const zip = String(body.zip_url || "").trim();
       if (zip && !/^https:\/\//.test(zip)) return json({ error: "The ZIP link has to start with https://" }, 400);
       if (zip) await db.prepare("UPDATE orders SET zip_url = ? WHERE id = ?").bind(clip(zip, 500), clip(body.id, 20)).run();

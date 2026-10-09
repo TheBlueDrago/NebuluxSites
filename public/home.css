@@ -139,3 +139,4 @@ body.home nav a:not(.btn){font-size:15px}
   body.home nav a:not(.btn){display:none}
 }
 @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none}}
+.shot.feature{grid-column:1/-1;text-decoration:none;color:inherit}.shot.feature .win{height:460px}.shot.feature:hover .win img{transform:translateY(calc(-100% + 460px))}

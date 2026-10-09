@@ -35,26 +35,26 @@ async function load() {
       ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}
       ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}
       <p class="muted" style="font-size:13px">Paid so far: $${(o.paid_total || 0).toFixed(2)} of $${o.price || 0}</p>
-      <div class="row" style="margin-top:8px">
-        <select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
-        <input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px">
-        <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link (only if card payments aren't set up)" style="flex:1;min-width:200px">
+      <div class="row" style="margin-top:10px">
+        <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+        <label style="margin:0 0 0 8px">Progress</label><input data-g="${esc(o.id)}" type="range" min="0" max="100" step="5" value="${o.progress || 0}" style="flex:1;min-width:140px;padding:0" oninput="this.nextElementSibling.textContent=this.value+'%'"><b>${o.progress || 0}%</b>
       </div>
-      <div class="row" style="margin-top:8px"><label style="margin:0">Progress</label><input data-g="${esc(o.id)}" type="number" min="0" max="100" value="${o.progress || 0}" style="width:90px">%<input data-v="${esc(o.id)}" value="${esc(o.preview_url)}" placeholder="Preview link (https://…)" style="flex:1;min-width:200px"></div>
-      <label style="margin:10px 0 4px">Live preview: paste the website's HTML (or load a file). The customer sees it on their account.</label>
-      <textarea data-h="${esc(o.id)}" style="min-height:90px;font-family:monospace;font-size:13px" placeholder="<!DOCTYPE html>…">${esc(o.preview_html)}</textarea>
-      <input type="file" accept=".html,.htm" data-f="${esc(o.id)}" style="margin-top:6px">
-      <input data-z="${esc(o.id)}" value="${esc(o.zip_url)}" placeholder="ZIP download link for the finished website (https://…, shown when complete)" style="margin-top:8px">
-      <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Update the customer sees (each new one is added to their timeline)" style="margin-top:8px">
+      <label style="margin:12px 0 4px">GitHub repo (the preview updates by itself from it)</label>
+      <input data-gh="${esc(o.id)}" value="${esc(o.github)}" placeholder="owner/repo or https://github.com/owner/repo">
+      ${o.github ? `<p class="muted" style="font-size:13px;margin-top:4px">Connected: <a href="https://github.com/${esc(o.github)}" target="_blank" rel="noopener">github.com/${esc(o.github)}</a></p>` : ""}
+      <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Update for the customer (optional)" style="margin-top:10px">
+      <details style="margin-top:10px;background:none;border:0;padding:0"><summary class="muted" style="font-size:14px">More</summary>
+        <div class="row" style="margin-top:8px"><input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px"><input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Backup payment link" style="flex:1;min-width:200px"></div>
+        <input data-z="${esc(o.id)}" value="${esc(o.zip_url)}" placeholder="Custom ZIP link (leave empty to use the GitHub repo)" style="margin-top:8px">
+      </details>
       <button class="btn" style="margin-top:8px" data-save="${esc(o.id)}">Save</button> <span class="ok" data-ok="${esc(o.id)}"></span>
     </div>`).join("") || '<p class="muted">No orders yet.</p>');
-  document.querySelectorAll("[data-f]").forEach((f) => (f.onchange = async () => { const file = f.files[0]; if (file) document.querySelector(`[data-h="${f.dataset.f}"]`).value = await file.text(); }));
-  const quick = (id, status) => call("/api/admin/order", { id, status, price: document.querySelector(`[data-p="${id}"]`).value, pay_link: document.querySelector(`[data-l="${id}"]`).value, note: document.querySelector(`[data-n="${id}"]`).value, progress: document.querySelector(`[data-g="${id}"]`).value, preview_url: document.querySelector(`[data-v="${id}"]`).value }).then(load);
+    const quick = (id, status) => call("/api/admin/order", { id, status, price: document.querySelector(`[data-p="${id}"]`).value, pay_link: document.querySelector(`[data-l="${id}"]`).value, note: document.querySelector(`[data-n="${id}"]`).value, progress: document.querySelector(`[data-g="${id}"]`).value }).then(load);
   document.querySelectorAll("[data-acc]").forEach((b) => (b.onclick = () => quick(b.dataset.acc, "awaiting deposit")));
   document.querySelectorAll("[data-dec]").forEach((b) => (b.onclick = () => confirm("Decline and delete this request? They get an email, and it disappears for both of you.") && quick(b.dataset.dec, "cancelled")));
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
-    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), preview_url: q("v"), preview_html: q("h"), zip_url: q("z") });
+    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), github: q("gh"), zip_url: q("z") });
     document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
   }));
 }
