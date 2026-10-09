@@ -221,7 +221,7 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
   b.onclick = () => set(!document.body.classList.contains("menu-open"));
   n.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
   // header gets solid after scrolling; the phone button shows once past the top
-  const onScroll = () => { document.body.classList.toggle("scrolled", scrollY > 20); document.body.classList.toggle("past-hero", scrollY > innerHeight * 0.7); };
+  const onScroll = () => { document.body.classList.toggle("scrolled", scrollY > 20); const fin = document.querySelector(".final"); document.body.classList.toggle("past-hero", scrollY > innerHeight * 0.7 && !(fin && fin.getBoundingClientRect().top < innerHeight)); };
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
 })();
 </script>
