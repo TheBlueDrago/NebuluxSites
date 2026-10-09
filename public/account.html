@@ -36,7 +36,7 @@
   <div id="app" style="display:none">
     <div class="box wide">
       <h2 style="margin:0 0 6px;text-align:left">Order a website</h2>
-      <p class="muted">Tell us what you want. Requests cost $5 (taken off your final price). After we review it, you pay the rest.</p>
+      <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished.</p>
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
         <label>What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
@@ -87,24 +87,28 @@ $("codeForm").onsubmit = async (e) => {
 };
 $("resend").onclick = async (e) => { e.preventDefault(); const r = await post("/api/resend", { email: $("email").value }); $("codeErr").textContent = r.ok ? "A new code is on its way." : r.error; };
 
-const STEPS = ["$5 request", "Paid", "Designing", "Building", "Ready"];
-function stepOf(o) { if (o.status === "awaiting deposit") return 0; if (o.status === "awaiting payment") return 1; if (o.status === "done") return 4; if (o.status === "building") return (o.progress || 0) >= 50 ? 3 : 2; if (o.status === "paid") return 1; return 0; }
+const STEPS = ["Request sent", "Accepted · pay $5", "Building", "Finished · pay the rest", "Complete"];
+function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 4, complete: 4 }[o.status] ?? 0; }
 function orderCard(o) {
-  const st = stepOf(o), pct = o.status === "done" ? 100 : (o.progress || 0);
+  const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
   let ups = []; try { ups = JSON.parse(o.updates || "[]"); } catch {}
   const due = o.status === "awaiting deposit" ? "deposit" : o.status === "awaiting payment" ? "rest" : "";
-  const pay = due ? (o.pay_link ? `<a class="btn" href="${esc(o.pay_link)}" target="_blank" rel="noopener noreferrer">${due === "deposit" ? "Pay $5 to send your request" : "Pay now"}</a>` : '<span class="muted">We\'re reviewing your request. Your payment link is coming soon.</span>') : "";
+  const pay = !due ? (o.status === "in review" ? '<p class="muted">We're looking at your request. We'll email you when we accept it.</p>' : "")
+    : o.claimed === o.status ? '<p class="muted">Thanks! We'll confirm your payment soon.</p>'
+    : o.pay_link ? `<div class="row"><a class="btn" href="${esc(o.pay_link)}" target="_blank" rel="noopener noreferrer">${due === "deposit" ? "Pay $5 to continue" : "Pay the rest"}</a><button class="btn ghost" onclick="paid('${esc(o.id)}')">I've paid</button></div>`
+    : '<p class="muted">Your payment link is coming soon.</p>';
   return `<div class="order">
     <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : esc(o.package) + (o.price ? " · $" + o.price : "")}</span></div><span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
     ${o.status === "cancelled" ? "" : `<div class="steps">${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done</p>`}
     <div class="preview">${o.preview_url
       ? `<div class="browser"><div class="dots"><b></b><b></b><b></b><span>${esc(o.preview_url.replace(/^https:\/\//, ""))}</span></div><iframe src="${esc(o.preview_url)}" loading="lazy" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe></div><a class="btn ghost" href="${esc(o.preview_url)}" target="_blank" rel="noopener noreferrer">Open full preview</a>`
-      : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${o.status.startsWith("awaiting") ? "Your live preview appears here once we start building." : "Your preview is being prepared…"}</div></div>`}</div>
+      : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your live preview appears here once we start building." : "Your preview is being prepared…"}</div></div>`}</div>
     ${pay}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
+async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {
   const r = await fetch("/api/orders").then((x) => x.json());
   const list = r.orders || [];
@@ -115,7 +119,7 @@ $("orderForm").onsubmit = async (e) => {
   const pk = document.querySelector('input[name="pkg"]:checked');
   const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value });
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
-  $("orderOk").textContent = `Thanks! Your order ${r.id} is in. Pay the $5 request fee below to get started (the link shows up shortly).`;
+  $("orderOk").textContent = `Thanks! Your order ${r.id} is in. We'll email you when we accept it.`;
   $("orderForm").reset(); await loadOrders(); $("mine").scrollIntoView({ behavior: "smooth" });
 };
 async function start() {

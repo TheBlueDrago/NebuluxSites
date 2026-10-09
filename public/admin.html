@@ -22,7 +22,7 @@ async function load() {
   sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = "";
   $("list").innerHTML = `<h2 style="margin:0 0 12px;text-align:left">Orders (${r.orders.length})</h2>` + (r.orders.map((o) => `
     <div class="card" style="margin-bottom:12px">
-      <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span class="tag">${esc(o.status)}</span></div>
+      <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>
       ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}

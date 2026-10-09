@@ -12,7 +12,16 @@ export const PACKAGES = {
   onetime: { name: "One time", price: 199, label: "$199", small: "one time", blurb: "Pay once and save. The best deal." },
 };
 const DEPOSIT = 5;
-const STATUSES = ["awaiting deposit", "awaiting payment", "paid", "building", "done", "cancelled"];
+// The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
+// (you finish) awaiting payment -> complete. Customers get an email when you accept and when
+// it's finished; you get an email for every new request and every "I've paid".
+const STATUSES = ["in review", "awaiting deposit", "building", "awaiting payment", "complete", "cancelled"];
+const SITE = "https://nebuluxsites.thebluedragonstriker.workers.dev";
+async function mail(env, to, subject, text) {
+  if (!env.RESEND_API_KEY || !to) return;
+  await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [to], subject, text }) }).catch(() => {});
+}
 
 const enc = new TextEncoder();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -51,7 +60,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
-  for (const c of ["progress INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -194,20 +203,35 @@ async function api(req, env, path) {
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
-      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "awaiting deposit", now, now).run();
+      .bind(id, u.id, u.email, u.name, body.package, pkg.price, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
     if (env.AIDB) await env.AIDB.batch([
       env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT)"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
     ]).catch(() => {});
-    if (env.RESEND_API_KEY && env.OWNER_EMAIL) {
-      fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [env.OWNER_EMAIL], subject: `New order ${id}: ${pkg.name}`, text: `${u.name} (${u.email}) ordered ${pkg.name}.\n\n${details}\n\nOpen the admin page and send them the $5 request payment link.` }) }).catch(() => {});
-    }
+    await mail(env, env.OWNER_EMAIL, `New request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}).
+
+${details}
+
+Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" and add the $5 payment link).`);
     return json({ ok: true, id });
+  }
+  if (path === "/api/paid" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (!(await allow("paid:" + u.id, 10, 3600))) return json({ error: "Please wait a bit." }, 429);
+    const o = await db.prepare("SELECT id, status, price FROM orders WHERE id = ? AND user_id = ?").bind(clip(body.id, 20), u.id).first();
+    if (!o || !["awaiting deposit", "awaiting payment"].includes(o.status)) return json({ error: "Nothing to pay right now." }, 400);
+    await db.prepare("UPDATE orders SET claimed = ?, updated_at = ? WHERE id = ?").bind(o.status, new Date().toISOString(), o.id).run();
+    const what = o.status === "awaiting deposit" ? "the $5 request fee" : "the rest of the price";
+    await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid ${what}`, `${u.name} (${u.email}) says they paid ${what} for ${o.id}.
+
+Check your payments, then update the order: ${SITE}/admin.html${o.status === "awaiting deposit" ? "
+(Set it to \"building\" and start making it.)" : "
+(Set it to \"complete\".)"}`);
+    return json({ ok: true });
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, pay_link, note, progress, preview_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, pay_link, note, progress, preview_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -223,13 +247,27 @@ async function api(req, env, path) {
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
       const prev = String(body.preview_url || "").trim();
       if (prev && !/^https:\/\//.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
-      const old = await db.prepare("SELECT note, updates FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
+      const old = await db.prepare("SELECT note, updates, status, email, name FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
       let ups = []; try { ups = JSON.parse(old?.updates || "[]"); } catch {}
       const note = clip(body.note, 1000);
       if (note && note !== old?.note) ups = [{ at: new Date().toISOString(), text: note }, ...ups].slice(0, 30);
       const pct = Math.max(0, Math.min(100, Math.round(+body.progress || 0)));
       await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, updates = ?, updated_at = ? WHERE id = ?")
         .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
+      if (status && old && status !== old.status) {
+        await db.prepare("UPDATE orders SET claimed = '' WHERE id = ?").bind(clip(body.id, 20)).run();
+        const hi = `Hi ${old.name || "there"},
+
+`, see = `
+
+See your order: ${SITE}/account.html
+
+Nebulux Sites`;
+        if (status === "awaiting deposit") await mail(env, old.email, "Your website request was accepted!", hi + "Good news: we accepted your website request. To continue, pay the $5 request fee (it comes off your final price). Then we start building." + see);
+        if (status === "building") await mail(env, old.email, "We started building your website", hi + "We got your payment and started building your website. You can watch the progress and a live preview on your account page." + see);
+        if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest of the price to get it." + see);
+        if (status === "complete") await mail(env, old.email, "Thank you! Your website is all yours", hi + "We got your payment. Thank you! Your website is complete." + see);
+      }
       return json({ ok: true });
     }
   }
