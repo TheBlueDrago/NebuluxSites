@@ -221,6 +221,37 @@ async function api(req, env, path) {
     if (u) await sendCode(env, email);
     return json({ ok: true });
   }
+  // Forgot password: an emailed code, then a new password. Every device is signed out after.
+  // The answer is the same whether or not the email has an account (so it can't be used to find accounts).
+  if (path === "/api/reset/start" && req.method === "POST") {
+    const email = cleanEmail(body.email);
+    if (!(await allow("reset:" + ip, 10, 3600)) || !(await allow("reset:" + email, 4, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
+    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (u) await sendCode(env, email).catch(() => {});
+    return json({ ok: true });
+  }
+  if (path === "/api/reset/finish" && req.method === "POST") {
+    const email = cleanEmail(body.email), pw = String(body.password || "");
+    if (!(await allow("verify:" + ip, 30, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
+    if (pw.length < 8) return json({ error: "Use at least 8 characters for your new password." }, 400);
+    const c = await db.prepare("SELECT * FROM codes WHERE email = ?").bind(email).first();
+    if (!c || c.expires < Date.now() || c.tries >= 5) return json({ error: "That code has expired. Send a new one." }, 400);
+    if (!(await sameText(await sha(String(body.code || "").trim()), c.code_hash))) {
+      await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ?").bind(email).run();
+      return json({ error: "That code isn't right. Check the email and try again." }, 400);
+    }
+    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (!u) return json({ error: "That code has expired. Send a new one." }, 400);
+    const salt = randomHex(16), hash = await hashPassword(pw, salt);
+    await db.batch([
+      db.prepare("DELETE FROM codes WHERE email = ?").bind(email),
+      db.prepare("UPDATE users SET pw_hash = ?, pw_salt = ?, verified = 1 WHERE id = ?").bind(hash, salt, u.id),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
+      db.prepare("DELETE FROM trusted WHERE user_id = ?").bind(u.id),
+    ]);
+    await mail(env, email, "Your Nebulux Sites password was changed", "Your password was just changed, and every device was signed out. If this wasn't you, reset it again right away from the log-in page.");
+    return startSession(env, u.id, false);
+  }
   if (path === "/api/logout" && req.method === "POST") {
     const t = cookie(req, "ns_session");
     if (t) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha(t)).run();

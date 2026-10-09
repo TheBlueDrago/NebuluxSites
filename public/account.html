@@ -23,7 +23,23 @@
     </form>
     <p class="muted" style="font-size:13px;margin-top:10px">By continuing, you agree to our <a href="/legal.html#terms" target="_blank">Terms of Service</a>, <a href="/legal.html#agreement" target="_blank">User Agreement</a> and <a href="/legal.html#privacy" target="_blank">Privacy Policy</a>.</p>
     <p class="err" id="authErr"></p>
+    <p class="muted" style="margin-top:8px"><a href="#" id="forgot">Forgot your password?</a></p>
     <p class="muted" style="margin-top:10px" id="switchText">New here? <a href="#" id="switchMode">Create an account</a></p>
+  </div>
+  <!-- forgot password -->
+  <div class="box" id="reset" style="display:none">
+    <h2 style="margin:0 0 6px;text-align:left">Reset your password</h2>
+    <p class="muted" id="resetSub">Type your email and we'll send you a 6-digit code.</p>
+    <form id="resetForm">
+      <label>Email</label><input id="rEmail" type="email" autocomplete="email" required>
+      <div id="rStep2" style="display:none">
+        <label>Code from the email</label><input id="rCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <label>New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="8">
+      </div>
+      <button class="btn" style="margin-top:14px;width:100%" id="rBtn">Send code</button>
+    </form>
+    <p class="err" id="rErr"></p>
+    <p class="muted" style="margin-top:10px"><a href="#" id="rBack">Back to log in</a></p>
   </div>
   <!-- the emailed code -->
   <div class="box" id="code" style="display:none">
@@ -76,7 +92,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
 let mode = "login", PKG = {};
 const want = new URLSearchParams(location.search).get("package");
-function show(id) { for (const x of ["auth", "code", "app"]) $(x).style.display = x === id ? "" : "none"; }
+function show(id) { for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
 function setMode(m) {
   mode = m; const up = m === "signup";
   $("authTitle").textContent = up ? "Create your account" : "Log in";
@@ -88,6 +104,17 @@ function setMode(m) {
   $("authErr").textContent = "";
 }
 $("switchMode").onclick = (e) => { e.preventDefault(); setMode("signup"); };
+$("forgot").onclick = (e) => { e.preventDefault(); $("rEmail").value = $("email").value; $("rStep2").style.display = "none"; $("rBtn").textContent = "Send code"; $("rErr").textContent = ""; show("reset"); };
+$("rBack").onclick = (e) => { e.preventDefault(); show("auth"); };
+$("resetForm").onsubmit = async (e) => {
+  e.preventDefault(); $("rErr").textContent = ""; $("rBtn").disabled = true;
+  const step2 = $("rStep2").style.display !== "none";
+  const r = step2 ? await post("/api/reset/finish", { email: $("rEmail").value, code: $("rCode").value, password: $("rPw").value }) : await post("/api/reset/start", { email: $("rEmail").value });
+  $("rBtn").disabled = false;
+  if (!r.ok) { $("rErr").textContent = r.error || "Something went wrong."; return; }
+  if (step2) return start();
+  $("rStep2").style.display = ""; $("rBtn").textContent = "Set new password"; $("resetSub").textContent = "If there's an account for that email, we sent it a code. It works for 10 minutes."; $("rCode").focus();
+};
 $("authForm").onsubmit = async (e) => {
   e.preventDefault(); $("authErr").textContent = ""; $("authBtn").disabled = true;
   const body = { email: $("email").value, password: $("password").value, name: $("name").value, remember: $("remember").checked };
