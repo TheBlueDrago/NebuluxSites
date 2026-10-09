@@ -31,12 +31,13 @@ async function load() {
         <input data-p="${esc(o.id)}" value="${o.price || ""}" placeholder="Price $" style="width:110px">
         <input data-l="${esc(o.id)}" value="${esc(o.pay_link)}" placeholder="Payment link (https://…)" style="flex:1;min-width:200px">
       </div>
-      <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Note the customer sees" style="margin-top:8px">
+      <div class="row" style="margin-top:8px"><label style="margin:0">Progress</label><input data-g="${esc(o.id)}" type="number" min="0" max="100" value="${o.progress || 0}" style="width:90px">%<input data-v="${esc(o.id)}" value="${esc(o.preview_url)}" placeholder="Preview link (https://…)" style="flex:1;min-width:200px"></div>
+      <input data-n="${esc(o.id)}" value="${esc(o.note)}" placeholder="Update the customer sees (each new one is added to their timeline)" style="margin-top:8px">
       <button class="btn" style="margin-top:8px" data-save="${esc(o.id)}">Save</button> <span class="ok" data-ok="${esc(o.id)}"></span>
     </div>`).join("") || '<p class="muted">No orders yet.</p>');
   document.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.save, q = (k) => document.querySelector(`[data-${k}="${id}"]`).value;
-    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n") });
+    const res = await call("/api/admin/order", { id, status: q("s"), price: q("p"), pay_link: q("l"), note: q("n"), progress: q("g"), preview_url: q("v") });
     document.querySelector(`[data-ok="${id}"]`).textContent = res.ok ? "Saved" : res.error;
   }));
 }

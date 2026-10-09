@@ -50,6 +50,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
+  for (const c of ["progress INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -170,7 +171,7 @@ async function api(req, env, path) {
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT id, package, price, kind, status, pay_link, note, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, pay_link, note, progress, preview_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
     return json({ orders: r.results || [] });
   }
 
@@ -184,8 +185,15 @@ async function api(req, env, path) {
       const status = STATUSES.includes(body.status) ? body.status : null;
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
-      await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), updated_at = ? WHERE id = ?")
-        .bind(status, clip(link, 500), clip(body.note, 1000), Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, new Date().toISOString(), clip(body.id, 20)).run();
+      const prev = String(body.preview_url || "").trim();
+      if (prev && !/^https:///.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
+      const old = await db.prepare("SELECT note, updates FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
+      let ups = []; try { ups = JSON.parse(old?.updates || "[]"); } catch {}
+      const note = clip(body.note, 1000);
+      if (note && note !== old?.note) ups = [{ at: new Date().toISOString(), text: note }, ...ups].slice(0, 30);
+      const pct = Math.max(0, Math.min(100, Math.round(+body.progress || 0)));
+      await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, updates = ?, updated_at = ? WHERE id = ?")
+        .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
       return json({ ok: true });
     }
   }
