@@ -34,8 +34,26 @@
     <p class="muted" style="margin-top:10px"><a href="#" id="resend">Send a new code</a></p>
   </div>
   <!-- signed in: order + my orders -->
-  <div id="app" style="display:none">
-    <div class="box wide">
+  <div id="app" class="dash" style="display:none">
+    <aside class="dside">
+      <p class="dlabel">Menu</p>
+      <button data-v="dash" class="on"><span class="di"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg></span><b>Dashboard</b><small>Status & progress</small></button>
+      <button data-v="prev"><span class="di"><svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18z"/></svg></span><b>Preview</b><small>See your website live</small></button>
+      <button data-v="req"><span class="di"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></span><b>Request</b><small>Ask for a website</small></button>
+      <div class="dme" id="dme"></div>
+    </aside>
+    <section class="dmain">
+      <div id="v-dash">
+        <h2 class="dh">Dashboard</h2><p class="muted dsub">Your websites, their status and our progress.</p>
+        <div id="orders" class="muted">No websites yet.</div>
+      </div>
+      <div id="v-prev" style="display:none">
+        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing.</p></div><div class="row"><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
+        <div id="pview"></div>
+      </div>
+      <div id="v-req" style="display:none">
+        <div id="reqBlocked" style="display:none"></div>
+        <div class="box wide" id="reqBox" style="margin:0">
       <h2 style="margin:0 0 6px;text-align:left">Order a website</h2>
       <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished. You get your website as a ZIP file with instructions; you buy your own domain and hosting.</p>
       <form id="orderForm">
@@ -47,11 +65,9 @@
         <button class="btn" style="margin-top:12px">Send my request</button>
       </form>
       <p class="err" id="orderErr"></p><p class="ok" id="orderOk"></p>
-    </div>
-    <div class="box wide" id="mine">
-      <h2 style="margin:0 0 12px;text-align:left">My websites</h2>
-      <div id="orders" class="muted">No orders yet.</div>
-    </div>
+        </div>
+      </div>
+    </section>
   </div>
 </main>
 <script>
@@ -101,21 +117,51 @@ function orderCard(o) {
     : `<div class="paybox"><div><b>${due === "deposit" ? "Pay your starting fee" : "Your website is finished! Pay the rest"}</b><span class="muted">${due === "deposit" ? "$5 to start building (it comes off your price)" : "$" + left.toFixed(0) + " left to pay"}</span></div><a class="btn" href="/billing.html?id=${encodeURIComponent(o.id)}">${due === "deposit" ? "Pay $5 →" : "Go to billing →"}</a></div>`;
   return `<div class="order">
     <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : esc(o.package) + (o.price ? " · $" + o.price : "")}</span></div><span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
-    ${o.status === "cancelled" ? "" : `<div class="steps">${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
-    <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done</p>`}
-    <div class="preview">${src
-      ? `<div class="browser"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : "Live preview · " + esc(o.kind || "your website")}</span><span class="livetag">● LIVE</span></div><iframe src="${esc(src)}" loading="lazy" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div><a class="btn ghost" href="${esc(src)}" target="_blank" rel="noopener noreferrer">Open full preview</a>`
-      : `<div class="browser empty"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your website will appear here, live, once we start building." : "Your website preview is being prepared…"}</div></div>`}</div>
+    ${o.status === "cancelled" ? `<div class="declined"><b>This request was declined.</b><p class="muted">Sorry, we couldn't take this one on. You weren't charged. You can send a new request any time.</p><button class="btn ghost" onclick="removeOrder('${esc(o.id)}')">Remove</button></div>` : `<div class="steps">`}${o.status === "cancelled" ? "" : `${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
+    <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview →</a>` : ""}</p>`}
     ${pay}
     ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then upload it to your own hosting and connect your domain. Follow the instructions we send you, and email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a></div>` : ""}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
+let ORDERS = [], pickId = "";
+const ACTIVE = (o) => !["complete", "cancelled"].includes(o.status);
+const srcOf = (o) => o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) : "");
+function view(v, id) {
+  if (id) pickId = id;
+  for (const k of ["dash", "prev", "req"]) $("v-" + k).style.display = k === v ? "" : "none";
+  document.querySelectorAll(".dside button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  if (v === "prev") drawPreview();
+  try { history.replaceState(null, "", "#" + v); } catch (e) {}
+}
+document.querySelectorAll(".dside button").forEach((b) => (b.onclick = () => view(b.dataset.v)));
+function drawPreview() {
+  const list = ORDERS.filter((o) => o.status !== "cancelled");
+  if (!list.length) { $("psel").style.display = "none"; $("pfull").style.display = "none"; $("pview").innerHTML = '<div class="browser empty big"><div class="dots"><b></b><b></b><b></b></div><div class="soon">No website yet. Send a request and your website will show up here while we build it.</div></div>'; return; }
+  if (!list.some((o) => o.id === pickId)) pickId = (list.find(ACTIVE) || list[0]).id;
+  $("psel").style.display = list.length > 1 ? "" : "none";
+  $("psel").innerHTML = list.map((o) => `<option value="${esc(o.id)}" ${o.id === pickId ? "selected" : ""}>${esc(o.kind || o.id)}</option>`).join("");
+  $("psel").onchange = () => { pickId = $("psel").value; drawPreview(); };
+  const o = list.find((x) => x.id === pickId), src = srcOf(o);
+  $("pfull").style.display = src ? "" : "none"; if (src) $("pfull").href = src;
+  const cur = $("pview").querySelector("iframe");
+  if (src && cur && cur.dataset.src === src) return; // don't reload it while they're looking around
+  $("pview").innerHTML = src
+    ? `<div class="browser big"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : esc((o.kind || "your website").toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com")}</span><span class="livetag">● LIVE · ${o.status === "complete" ? "finished" : (o.progress || 0) + "% built"}</span></div><iframe data-src="${esc(src)}" src="${esc(src)}" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div>`
+    : `<div class="browser empty big"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your website will appear here, live, once we start building." : "Your website preview is being prepared…"}</div></div>`;
+}
+function drawRequest() {
+  const busy = ORDERS.find(ACTIVE);
+  $("reqBlocked").style.display = busy ? "" : "none"; $("reqBox").style.display = busy ? "none" : "";
+  if (busy) $("reqBlocked").innerHTML = `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">🛠️</div><h2 style="margin:6px 0">You already have a website in the works</h2><p class="muted">${esc(busy.kind || busy.id)} is <b>${esc(busy.status)}</b>. You can request another website when it's finished.</p><button class="btn" style="margin-top:14px" onclick="view('dash')">Go to my dashboard</button></div>`;
+}
+async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {
   const r = await fetch("/api/orders").then((x) => x.json());
-  const list = r.orders || [];
-  $("orders").innerHTML = list.length ? list.map(orderCard).join("") : "No orders yet.";
+  const list = r.orders || []; ORDERS = list;
+  $("orders").innerHTML = list.length ? list.map(orderCard).join("") : `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">✨</div><h2 style="margin:6px 0">No websites yet</h2><p class="muted">Tell us what you want and we'll build it.</p><button class="btn" style="margin-top:14px" onclick="view('req')">Request a website</button></div>`;
+  drawRequest(); if ($("v-prev").style.display !== "none") drawPreview();
 }
 $("orderForm").onsubmit = async (e) => {
   e.preventDefault(); $("orderErr").textContent = ""; $("orderOk").textContent = "";
@@ -123,7 +169,7 @@ $("orderForm").onsubmit = async (e) => {
   const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value });
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
   $("orderOk").textContent = `Thanks! Your order ${r.id} is in. We'll email you when we accept it.`;
-  $("orderForm").reset(); await loadOrders(); $("mine").scrollIntoView({ behavior: "smooth" });
+  $("orderForm").reset(); await loadOrders(); view("dash");
 };
 async function start() {
   const [{ user }, { packages }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
@@ -132,9 +178,11 @@ async function start() {
     if (cq) { $("email").value = cq; $("codeEmail").textContent = cq; show("code"); $("codeIn").focus(); }
     return; }
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
+  $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
   $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
-  show("app"); loadOrders(); setInterval(loadOrders, 60000);
+  show("app"); await loadOrders(); setInterval(loadOrders, 60000);
+  const hv = location.hash.slice(1); view(["dash", "prev", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");

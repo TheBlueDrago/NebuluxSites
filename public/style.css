@@ -124,3 +124,38 @@ footer{text-align:left;max-width:1120px;margin:80px auto 0;padding:40px 6vw;bord
 .zipcard{display:flex;flex-direction:column;gap:6px;padding:28px;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:0 30px 90px -30px rgba(140,80,255,.5)}.zipico{font-size:44px;width:72px;height:72px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px}.zipcard ol{margin:14px 0 0 20px;color:var(--muted)}.zipcard li{padding:4px 0}
 .zipdone{margin:16px 0;padding:18px;border-radius:16px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.08)}.zipdone p{margin:6px 0 12px}
 .paybox{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:16px 0;padding:16px 18px;border-radius:16px;border:1px solid rgba(250,204,21,.4);background:rgba(250,204,21,.08)}.paybox b{display:block;font-size:17px}
+
+/* account dashboard */
+.dash{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start;margin:3vh auto 0}
+main:has(.dash){max-width:1320px;padding-left:24px}
+.dside{position:sticky;top:84px;display:flex;flex-direction:column;gap:4px;padding:16px 12px;min-height:calc(100vh - 120px);border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);backdrop-filter:blur(14px);box-shadow:0 30px 80px -40px rgba(120,70,255,.6)}
+.dlabel{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:2px 12px 10px}
+.dside button{position:relative;display:grid;grid-template-columns:42px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;width:100%;padding:11px 12px;border:0;border-radius:16px;background:transparent;color:var(--muted);font:inherit;cursor:pointer;text-align:left;transition:background .2s,color .2s,transform .15s}
+.dside button .di{grid-row:1/3;width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:var(--card2);transition:.2s}
+.dside button .di svg{width:21px;height:21px;fill:currentColor}
+.dside button b{font-size:16px;color:var(--text);line-height:1.2}.dside button small{font-size:12.5px;line-height:1.3}
+.dside button:hover{background:rgba(255,255,255,.06);transform:translateX(2px)}
+.dside button.on{background:linear-gradient(100deg,rgba(107,91,255,.3),rgba(209,108,245,.18));color:#e9e5ff}
+.dside button.on::before{content:"";position:absolute;left:-12px;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(180deg,var(--accent2),var(--accent));box-shadow:0 0 14px var(--accent)}
+.dside button.on .di{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;box-shadow:0 8px 22px -6px rgba(209,108,245,.8)}
+.dme{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:rgba(0,0,0,.25);border:1px solid var(--line)}
+.dme .av{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:900;background:linear-gradient(135deg,var(--accent2),var(--accent))}
+.dme div{min-width:0}.dme b{display:block;font-size:14px}.dme small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dh{text-align:left;margin:0;font-size:34px;letter-spacing:-.02em}.dsub{margin:2px 0 20px}
+.browser.big iframe{height:calc(100vh - 250px);min-height:460px}
+.browser.empty.big .soon{height:calc(100vh - 290px);min-height:360px;font-size:17px}
+.declined{margin-top:16px;padding:16px 18px;border-radius:16px;border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08)}.declined p{margin:4px 0 12px}
+.t-cancelled{background:rgba(248,113,113,.2);color:#fca5a5}
+/* phones: the sidebar stays on the left as a slim rail */
+@media (max-width:860px){
+  main:has(.dash){padding:0 12px 60px 0}
+  .dash{grid-template-columns:72px 1fr;gap:14px}
+  .dside{top:70px;min-height:calc(100vh - 90px);padding:10px 6px;border-radius:0 20px 20px 0;border-left:0}
+  .dlabel,.dme div,.dside button small{display:none}
+  .dside button{grid-template-columns:1fr;justify-items:center;padding:8px 2px;row-gap:4px}
+  .dside button .di{grid-row:auto}
+  .dside button b{font-size:11px;font-weight:700}
+  .dside button.on::before{left:-6px}
+  .dme{padding:6px;justify-content:center;background:none;border:0}
+  .dh{font-size:26px}
+}
