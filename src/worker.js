@@ -416,6 +416,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
       }
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
+      const before = await db.prepare("SELECT github, zip_url, status, email, name FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
       if (typeof body.github === "string") {
         const repo = ghRepo(body.github);
         if (body.github.trim() && !repo) return json({ error: "Use the repo like owner/repo or its github.com link." }, 400);
