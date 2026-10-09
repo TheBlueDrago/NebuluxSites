@@ -27,6 +27,7 @@ const buy = new URLSearchParams(location.search).get("buy") || "";
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
 const money = (n) => "$" + Number(n || 0).toFixed(2).replace(/\.00$/, "");
 function done(r) {
+  if (r.update) { $("card").innerHTML = `<div class="done"><div class="big">🛠️</div><h2 style="margin:6px 0">Update paid!</h2><p class="muted">Thanks! We're working on your update and will email you when it's done.</p><a class="btn" style="margin-top:18px" href="/account.html#mon">Back to Monitor</a></div>`; return; }
   if (r.messages) { $("card").innerHTML = `<div class="done"><div class="big">💬</div><h2 style="margin:6px 0">${r.messages} more messages added!</h2><p class="muted">Go back to your order to keep chatting with us.</p><a class="btn" style="margin-top:18px" href="/account.html#dash">Back to my dashboard</a></div>`; return; }
   $("card").innerHTML = `<div class="done"><div class="big">🎉</div><h2 style="margin:6px 0">Payment received!</h2><p class="muted">${r.status === "building" ? "Thank you! We're starting on your website now. Watch it come together on your account page." : r.left > 0 ? `Thank you! ${money(r.left)} is left to pay.` : "Thank you! Your website is fully paid. Download it from your account page."}</p><a class="btn" style="margin-top:18px" href="/account.html">Go to my account</a></div>`;
 }

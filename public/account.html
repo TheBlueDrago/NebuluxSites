@@ -68,6 +68,7 @@
       <p class="dlabel">Menu</p>
       <button data-v="dash" class="on"><span class="di"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg></span><b>Dashboard</b><small>Status & progress</small></button>
       <button data-v="prev"><span class="di"><svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18z"/></svg></span><b>Preview</b><small>See your website live</small></button>
+      <button data-v="mon"><span class="di"><svg viewBox="0 0 24 24"><path d="M3 13h2l3-7 4 14 3-9 2 2h4v2h-5l-1-1-3 9-4-14-2 5H3z"/></svg></span><b>Monitor</b><small>Health & updates</small></button>
       <button data-v="req"><span class="di"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></span><b>Request</b><small>Ask for a website</small></button>
       <button class="dme" id="dme" title="Account settings"></button>
     </aside>
@@ -77,8 +78,12 @@
         <div id="orders" class="muted">No websites yet.</div>
       </div>
       <div id="v-prev" style="display:none">
-        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing.</p></div><div class="row"><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
+        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing. Scroll and click around inside it.</p></div><div class="row"><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
         <div id="pview"></div>
+      </div>
+      <div id="v-mon" style="display:none">
+        <h2 class="dh">Monitor</h2><p class="muted dsub">Check that your finished website is online, and ask us for updates.</p>
+        <div id="monBody"></div>
       </div>
       <div id="v-req" style="display:none">
         <div id="reqBlocked" style="display:none"></div>
@@ -175,9 +180,10 @@ const ACTIVE = (o) => !["complete", "cancelled"].includes(o.status);
 const srcOf = (o) => o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
 function view(v, id) {
   if (id) pickId = id;
-  for (const k of ["dash", "prev", "req"]) $("v-" + k).style.display = k === v ? "" : "none";
+  for (const k of ["dash", "prev", "mon", "req"]) $("v-" + k).style.display = k === v ? "" : "none";
   document.querySelectorAll(".dside button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   if (v === "prev") drawPreview();
+  if (v === "mon") drawMonitor();
   try { history.replaceState(null, "", "#" + v); } catch (e) {}
 }
 document.querySelectorAll(".dside button").forEach((b) => (b.onclick = () => view(b.dataset.v)));
@@ -193,7 +199,7 @@ function drawPreview() {
   const cur = $("pview").querySelector("iframe");
   if (src && cur && cur.dataset.src === src) return; // don't reload it while they're looking around
   $("pview").innerHTML = src
-    ? `<div class="browser big"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : esc((o.kind || "your website").toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com")}</span><span class="livetag">● LIVE · ${o.status === "complete" ? "finished" : (o.progress || 0) + "% built"}</span></div><iframe data-src="${esc(src)}" src="${esc(src)}" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div>`
+    ? `<div class="browser big"><div class="dots"><b></b><b></b><b></b><span>${o.preview_url ? esc(o.preview_url.replace(/^https:\/\//, "")) : esc((o.kind || "your website").toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com")}</span><span class="livetag">● LIVE · ${o.status === "complete" ? "finished" : (o.progress || 0) + "% built"}</span></div><iframe scrolling="yes" data-src="${esc(src)}" src="${esc(src)}" sandbox="allow-scripts allow-forms allow-popups" title="Preview of your website"></iframe></div>`
     : `<div class="browser empty big"><div class="dots"><b></b><b></b><b></b></div><div class="soon">${["in review", "awaiting deposit"].includes(o.status) ? "Your website will appear here, live, once we start building." : "Your website preview is being prepared…"}</div></div>`;
 }
 function drawRequest() {
@@ -245,6 +251,34 @@ async function sendReview(e, id) {
   if (!r.ok) return alert(r.error || "Couldn't send that.");
   f.innerHTML = '<p class="ok">Thank you for your review! 💜</p>';
 }
+// ---- Monitor tab ----
+async function drawMonitor() {
+  const done = ORDERS.filter((o) => o.status === "complete");
+  if (!done.length) { $("monBody").innerHTML = '<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">📡</div><h2 style="margin:6px 0">Nothing to monitor yet</h2><p class="muted">Once your website is finished and online, you can watch it here and ask us for updates.</p></div>'; return; }
+  $("monBody").innerHTML = done.map((o) => `<div class="order" id="mon-${esc(o.id)}"><div class="order-top"><div><span class="muted">${esc(o.id)}</span><h3>${esc(o.kind || "Your website")}</h3></div></div><p class="muted">Checking…</p></div>`).join("");
+  for (const o of done) monOne(o.id);
+}
+async function monOne(id, liveUrl) {
+  const r = liveUrl != null ? await post("/api/monitor", { id, live_url: liveUrl }) : await fetch("/api/monitor?id=" + encodeURIComponent(id)).then((x) => x.json()).catch(() => ({}));
+  const box = document.getElementById("mon-" + id); if (!box) return;
+  const c = r.check, o = ORDERS.find((x) => x.id === id) || {};
+  const STAT = { asked: ["Waiting for our price", ""], quoted: ["Ready to pay", "t-awaiting-payment"], paid: ["We're working on it", "t-building"], done: ["Done", "t-done"], declined: ["Declined", "t-cancelled"] };
+  box.innerHTML = `<div class="order-top"><div><span class="muted">${esc(id)}</span><h3>${esc(o.kind || "Your website")}</h3></div>${c ? `<span class="tag ${c.up ? "t-done" : "t-cancelled"}">${c.up ? "● Online" : "● Offline"}</span>` : ""}</div>
+    <label>Your website's address</label>
+    <form class="mform" onsubmit="event.preventDefault(); monOne('${esc(id)}', this.querySelector('input').value)"><input placeholder="mybakery.com" value="${esc(r.live_url || "")}"><button class="btn">${r.live_url ? "Update" : "Save"}</button></form>
+    ${r.error ? `<p class="err">${esc(r.error)}</p>` : ""}
+    ${c ? `<div class="tiles" style="margin-top:16px"><div class="tile"><small>Status</small><b>${c.up ? "Online" : "Offline"}</b><span>${c.code ? "Answer " + c.code : "No answer"}</span></div><div class="tile"><small>Speed</small><b>${(c.ms / 1000).toFixed(1)}s</b><span>${c.ms < 800 ? "Fast" : c.ms < 2000 ? "OK" : "Slow"}</span></div><div class="tile"><small>Secure</small><b>${c.https ? "Yes" : "No"}</b><span>${c.https ? "Uses https 🔒" : "Turn on https at your host"}</span></div></div>${c.title ? `<p class="muted">Page title: ${esc(c.title)}</p>` : ""}<p class="muted" style="font-size:13px">Checked ${new Date(r.at).toLocaleString()} · <a href="#" onclick="event.preventDefault(); monOne('${esc(id)}')">Check again</a> · <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">Visit ↗</a></p>` : r.live_url ? "" : '<p class="muted">Add your website\'s address to watch it.</p>'}
+    <h4>Need an update?</h4>
+    <p class="muted" style="font-size:14px">Tell us what you'd like changed. We'll reply with a price (small things can be free), and you pay before we start.</p>
+    <form class="upform" onsubmit="sendUpgrade(event, '${esc(id)}')"><textarea maxlength="2000" required placeholder="e.g. Add a new cookie flavor to the menu and change the opening hours"></textarea><button class="btn">Send request</button></form>
+    ${(r.upgrades || []).length ? `<ul class="uplist">${r.upgrades.map((u) => `<li><div><span>${esc(u.text)}</span><small class="muted">${new Date(u.at).toLocaleDateString()}</small></div><div>${u.price ? `<b>$${u.price}</b> ` : ""}<span class="tag ${STAT[u.status][1]}">${STAT[u.status][0]}</span>${u.status === "quoted" ? ` <a class="btn" style="padding:6px 12px" href="/billing.html?id=${encodeURIComponent(id)}&buy=upd${u.id}">Pay $${u.price}</a>` : ""}</div></li>`).join("")}</ul>` : ""}`;
+}
+async function sendUpgrade(e, id) {
+  e.preventDefault(); const t = e.target.querySelector("textarea");
+  const r = await post("/api/upgrade", { id, text: t.value });
+  if (!r.ok) return alert(r.error || "Couldn't send that.");
+  monOne(id);
+}
 async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {
@@ -289,7 +323,7 @@ async function start() {
   };
   $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
   show("app"); await loadOrders(); setInterval(loadOrders, 60000);
-  const hv = location.hash.slice(1); view(["dash", "prev", "req"].includes(hv) ? hv : want ? "req" : "dash");
+  const hv = location.hash.slice(1); view(["dash", "prev", "mon", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");

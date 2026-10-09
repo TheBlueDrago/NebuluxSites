@@ -18,8 +18,6 @@ export const ADDONS = {
   seo: { name: "Google & SEO setup", price: 29, blurb: "Titles, descriptions, sitemap and Google Search Console set up so people can find you." },
   rush: { name: "Rush delivery", price: 59, blurb: "We start right away and finish faster than your plan's normal time." },
   logo: { name: "Logo design", price: 35, blurb: "A simple, clean logo for your business, in all the sizes you need." },
-  pages: { name: "Extra pages (up to 3)", price: 45, blurb: "Up to 3 more pages, like a gallery, menu or team page." },
-  care: { name: "1 month of changes", price: 25, blurb: "After launch, we make small changes for a month (new photos, prices, text)." },
 };
 // Messages: a customer gets FREE_MSGS free messages on each order. After that they buy
 // MSG_BLOCK more for MSG_PRICE dollars on the Billing page (so people describe things up front).
@@ -132,13 +130,14 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS reviews (order_id TEXT PRIMARY KEY, user_id TEXT, name TEXT, business TEXT, stars INTEGER, text TEXT, approved INTEGER DEFAULT 0, at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS upgrades (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, text TEXT, status TEXT DEFAULT 'asked', price INTEGER DEFAULT 0, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
   await db.prepare("ALTER TABLE users ADD COLUMN signup_net TEXT DEFAULT ''").run().catch(() => {});
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "live_url TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
 
@@ -385,8 +384,12 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
     const o = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
     if (!o) return json({ error: "We couldn't find that order." }, 404);
-    const buyMsgs = (body.buy || new URL(req.url).searchParams.get("buy")) === "msgs";
-    const bill = buyMsgs ? { due: "msgs", amount: MSG_PRICE, label: `${MSG_BLOCK} more messages`, paid: o.paid_total || 0, left: Math.max(0, (o.price || 0) - (o.paid_total || 0)) } : billFor(o);
+    const buyWhat = String(body.buy || new URL(req.url).searchParams.get("buy") || "");
+    const buyMsgs = buyWhat === "msgs";
+    const upId = /^upd\d+$/.test(buyWhat) ? +buyWhat.slice(3) : 0;
+    const up = upId ? await db.prepare("SELECT * FROM upgrades WHERE id = ? AND order_id = ? AND status = 'quoted'").bind(upId, o.id).first() : null;
+    if (upId && !up) return json({ error: "That update isn't waiting for payment." }, 400);
+    const bill = up ? { due: "upd" + up.id, amount: up.price, label: "website update", paid: o.paid_total || 0, left: 0 } : buyMsgs ? { due: "msgs", amount: MSG_PRICE, label: `${MSG_BLOCK} more messages`, paid: o.paid_total || 0, left: Math.max(0, (o.price || 0) - (o.paid_total || 0)) } : billFor(o);
     if (path === "/api/billing") {
       return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, stripe: env.STRIPE_PUBLISHABLE_KEY || "", pay_link: o.pay_link || "", email: u.email, name: u.name });
     }
@@ -410,6 +413,14 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     }
     const paid = pi.amount_received / 100;
     const now = new Date().toISOString();
+    if (up) {
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now),
+        db.prepare("UPDATE upgrades SET status = 'paid' WHERE id = ?").bind(up.id),
+      ]);
+      await mail(env, env.OWNER_EMAIL, `${o.id}: update paid ($${paid.toFixed(2)})`, `${u.name} paid $${paid.toFixed(2)} for this update:\n\n${up.text}\n\nMark it done on the admin page when it's finished: ${SITE}/admin.html`);
+      return json({ ok: true, update: true });
+    }
     if (bill.due === "msgs") {
       await db.batch([
         db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, "msgs", now),
@@ -518,6 +529,43 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const left = (await db.prepare("SELECT msg_credits FROM orders WHERE id = ?").bind(id).first()).msg_credits ?? FREE_MSGS;
     return json({ messages: r.results || [], sent: await sent(), left, block: MSG_BLOCK, price: MSG_PRICE });
   }
+  // ---- Monitor: a finished website's health, and paid update requests ----
+  if (path === "/api/monitor") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
+    const o = await db.prepare("SELECT id, live_url FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
+    if (!o) return json({ error: "We couldn't find that website." }, 404);
+    if (req.method === "POST" && typeof body.live_url === "string") {
+      let url = body.live_url.trim();
+      if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+      try { if (url) { const x = new URL(url); if (!/\./.test(x.hostname) || /^(localhost|\d+\.\d+\.\d+\.\d+)$/.test(x.hostname)) throw 0; url = x.origin + x.pathname; } }
+      catch { return json({ error: "That doesn't look like a website address." }, 400); }
+      await db.prepare("UPDATE orders SET live_url = ? WHERE id = ?").bind(clip(url, 300), id).run();
+      o.live_url = url;
+    }
+    let check = null;
+    if (o.live_url && (await allow("mon:" + u.id, 60, 3600))) {
+      const t0 = Date.now();
+      try {
+        const r = await fetch(o.live_url, { redirect: "follow", headers: { "user-agent": "NebuluxSites-Monitor" }, signal: AbortSignal.timeout(10000) });
+        const html = (await r.text()).slice(0, 200000);
+        check = { up: r.ok, code: r.status, ms: Date.now() - t0, https: new URL(r.url).protocol === "https:", title: ((html.match(/<title[^>]*>([^<]*)/i) || [])[1] || "").trim().slice(0, 120), size: html.length };
+      } catch { check = { up: false, code: 0, ms: Date.now() - t0, https: o.live_url.startsWith("https:") }; }
+    }
+    const ups = await db.prepare("SELECT id, text, status, price, at FROM upgrades WHERE order_id = ? ORDER BY id DESC LIMIT 50").bind(id).all();
+    return json({ live_url: o.live_url, check, at: new Date().toISOString(), upgrades: ups.results || [] });
+  }
+  if (path === "/api/upgrade" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const o = await db.prepare("SELECT id, kind FROM orders WHERE id = ? AND user_id = ? AND status = 'complete'").bind(clip(body.id, 20), u.id).first();
+    if (!o) return json({ error: "You can ask for updates once your website is finished." }, 400);
+    const text = clip(String(body.text || "").trim(), 2000);
+    if (text.length < 10) return json({ error: "Tell us what you'd like changed (a sentence or two)." }, 400);
+    if (!(await allow("upg:" + u.id, 10, 86400))) return json({ error: "You've sent a lot of requests today. Please wait a bit." }, 429);
+    await db.prepare("INSERT INTO upgrades (order_id, user_id, text, at) VALUES (?, ?, ?, ?)").bind(o.id, u.id, text, new Date().toISOString()).run();
+    await mail(env, env.OWNER_EMAIL, `Update request for ${o.id} from ${u.name}`, `${u.name} (${u.email}) wants an update to ${o.kind || o.id}:\n\n${text}\n\nSet a price on the admin page: ${SITE}/admin.html`);
+    return json({ ok: true });
+  }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
@@ -546,6 +594,26 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       if (req.method === "POST" && body.action === "delete") await db.prepare("DELETE FROM reviews WHERE order_id = ?").bind(clip(body.id, 20)).run();
       const r = await db.prepare("SELECT * FROM reviews ORDER BY at DESC LIMIT 200").all();
       return json({ reviews: r.results || [] });
+    }
+    if (path === "/api/admin/upgrades") {
+      if (req.method === "POST") {
+        const id = +body.id, row = await db.prepare("SELECT u.*, o.email, o.name, o.kind FROM upgrades u JOIN orders o ON o.id = u.order_id WHERE u.id = ?").bind(id).first();
+        if (!row) return json({ error: "Not found." }, 404);
+        if (body.action === "quote") {
+          const price = Math.round(+body.price);
+          if (!(price >= 0 && price <= 10000)) return json({ error: "Type a price." }, 400);
+          const status = price === 0 ? "paid" : "quoted";
+          await db.prepare("UPDATE upgrades SET price = ?, status = ? WHERE id = ?").bind(price, status, id).run();
+          await mail(env, row.email, price ? "Your update request: price" : "Your update request is free!", `Hi ${row.name || "there"},\n\nAbout your request: "${row.text.slice(0, 300)}"\n\n${price ? `It costs $${price}. Pay here and we'll get started: ${SITE}/billing.html?id=${encodeURIComponent(row.order_id)}&buy=upd${id}` : "We'll do it for free. We're starting now!"}\n\nNebulux Sites`);
+        }
+        if (body.action === "decline") await db.prepare("UPDATE upgrades SET status = 'declined' WHERE id = ?").bind(id).run();
+        if (body.action === "done") {
+          await db.prepare("UPDATE upgrades SET status = 'done' WHERE id = ?").bind(id).run();
+          await mail(env, row.email, "Your website update is done!", `Hi ${row.name || "there"},\n\nWe finished your update: "${row.text.slice(0, 300)}"\n\nDownload the new version from your account page: ${SITE}/account.html\n\nNebulux Sites`);
+        }
+      }
+      const r = await db.prepare("SELECT u.*, o.name, o.kind FROM upgrades u JOIN orders o ON o.id = u.order_id WHERE u.status IN ('asked', 'quoted', 'paid') ORDER BY u.id DESC LIMIT 100").all();
+      return json({ upgrades: r.results || [] });
     }
     if (path === "/api/admin/give-messages" && req.method === "POST") {
       const give = [1, MSG_BLOCK].includes(+body.n) ? +body.n : MSG_BLOCK;

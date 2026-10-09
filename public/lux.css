@@ -50,3 +50,9 @@ details.msgs{max-width:none;margin:16px 0 0}
 .total{margin-top:16px;font-size:17px}.total b{font-size:22px}
 .mnote{font-size:13px;margin:-4px 0 10px}
 .firstoff{display:inline-block;margin-bottom:6px;padding:5px 12px;border-radius:999px;background:rgba(74,222,128,.15);color:#86efac;font-weight:700;font-size:14px}
+.upform textarea{min-height:80px;margin-bottom:10px}
+.uplist{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.uplist li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
+.uplist li > div:first-child{display:flex;flex-direction:column;min-width:0}.uplist li > div:last-child{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.browser.big{overflow:auto;-webkit-overflow-scrolling:touch}.browser.big iframe{touch-action:auto}
+@media (max-width:860px){.browser.big iframe{height:70vh;min-height:420px}}

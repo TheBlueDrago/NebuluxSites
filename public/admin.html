@@ -9,6 +9,7 @@
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
   <div class="box wide" id="promos" style="display:none">
@@ -27,7 +28,7 @@ const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers:
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews();
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades();
   const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
   const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
   const tiles = [["Money collected", "$" + money.toFixed(0)], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
@@ -79,6 +80,16 @@ async function promos(body) {
   $("plist").innerHTML = r.promos.length ? `<table><tr><th>Code</th><th>Off</th><th>Used</th><th>Ends</th><th></th></tr>${r.promos.map((p) => `<tr><td><b>${esc(p.code)}</b>${p.active ? "" : ' <span class="tag">off</span>'}</td><td>${p.percent}%</td><td>${p.uses}${p.max_uses ? " / " + p.max_uses : ""}</td><td>${p.expires ? new Date(p.expires).toLocaleDateString() : "never"}</td><td><button class="btn ghost" data-pt="${esc(p.code)}">${p.active ? "Turn off" : "Turn on"}</button> <button class="btn ghost" data-pd="${esc(p.code)}">Delete</button></td></tr>`).join("")}</table>` : '<p class="muted">No codes yet.</p>';
   document.querySelectorAll("[data-pt]").forEach((b) => (b.onclick = () => promos({ action: "toggle", code: b.dataset.pt })));
   document.querySelectorAll("[data-pd]").forEach((b) => (b.onclick = () => confirm("Delete " + b.dataset.pd + "?") && promos({ action: "delete", code: b.dataset.pd })));
+}
+async function upgrades(body) {
+  const r = await call("/api/admin/upgrades", body); if (!r.ok) { if (r.error) alert(r.error); return; }
+  $("ups").style.display = "";
+  $("uplist").innerHTML = r.upgrades.length ? r.upgrades.map((u) => `<div class="card" style="margin-bottom:10px"><b>${esc(u.name)}</b> <span class="muted">· ${esc(u.kind || "")} · ${esc(u.order_id)} · ${new Date(u.at).toLocaleDateString()}</span> <span class="tag">${esc(u.status)}${u.price ? " · $" + u.price : ""}</span><p style="white-space:pre-wrap;margin:8px 0">${esc(u.text)}</p>
+    ${u.status === "asked" ? `<div class="row"><input type="number" min="0" placeholder="Price $" style="width:110px" data-upp="${u.id}"><button class="btn" data-upq="${u.id}">Send price</button><button class="btn ghost" data-upx="${u.id}">Decline</button></div>` : ""}
+    ${u.status === "paid" ? `<button class="btn" data-upd="${u.id}">✓ Mark done (emails them)</button>` : ""}${u.status === "quoted" ? '<span class="muted">Waiting for them to pay.</span>' : ""}</div>`).join("") : '<p class="muted">No open update requests.</p>';
+  document.querySelectorAll("[data-upq]").forEach((b) => (b.onclick = () => upgrades({ action: "quote", id: b.dataset.upq, price: document.querySelector(`[data-upp="${b.dataset.upq}"]`).value })));
+  document.querySelectorAll("[data-upx]").forEach((b) => (b.onclick = () => confirm("Decline this request?") && upgrades({ action: "decline", id: b.dataset.upx })));
+  document.querySelectorAll("[data-upd]").forEach((b) => (b.onclick = () => upgrades({ action: "done", id: b.dataset.upd })));
 }
 async function reviews(body) {
   const r = await call("/api/admin/reviews", body); if (!r.ok) return;
