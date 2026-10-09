@@ -108,7 +108,7 @@ $("resend").onclick = async (e) => { e.preventDefault(); const r = await post("/
 const STEPS = ["Request sent", "Accepted · pay $5", "Building", "Finished · pay the rest", "Complete"];
 function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 4, complete: 4 }[o.status] ?? 0; }
 function orderCard(o) {
-  const src = o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" : "");
+  const src = o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
   const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
   let ups = []; try { ups = JSON.parse(o.updates || "[]"); } catch {}
   const due = o.status === "awaiting deposit" ? "deposit" : o.status === "awaiting payment" ? "rest" : "";
@@ -126,7 +126,7 @@ function orderCard(o) {
 }
 let ORDERS = [], pickId = "";
 const ACTIVE = (o) => !["complete", "cancelled"].includes(o.status);
-const srcOf = (o) => o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" : "");
+const srcOf = (o) => o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
 function view(v, id) {
   if (id) pickId = id;
   for (const k of ["dash", "prev", "req"]) $("v-" + k).style.display = k === v ? "" : "none";
@@ -181,6 +181,8 @@ async function start() {
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
   $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
+  // Signed in: the logo opens the dashboard, not the home page.
+  const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
   show("app"); await loadOrders(); setInterval(loadOrders, 60000);
   const hv = location.hash.slice(1); view(["dash", "prev", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }

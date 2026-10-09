@@ -79,6 +79,8 @@ async function ghFile(env, repo, file) {
   return r.ok ? r : null;
 }
 
+const previewKey = async (env, id) => (await sha("preview:" + id + ":" + (env.ADMIN_KEY || env.RESEND_API_KEY || ""))).slice(0, 24);
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -335,13 +337,14 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   // The live preview of a website being built (HTML the owner pasted on the admin page).
   // Only its customer can open it, and it runs sandboxed so it can't touch their account.
   if (path.startsWith("/api/preview/")) {
-    const u = await currentUser(env, req); if (!u) return new Response("Please log in.", { status: 401 });
-    const rest = path.slice(13), slash = rest.indexOf("/");
-    const oid = clip(slash < 0 ? rest : rest.slice(0, slash), 20);
-    const o = await db.prepare("SELECT preview_html, github FROM orders WHERE id = ? AND user_id = ?").bind(oid, u.id).first();
+    // /api/preview/<order>/<key>/<file>
+    const parts = path.slice(13).split("/"), oid = clip(parts[0], 20), key = parts[1] || "";
+    if (!key || !(await sameText(key, await previewKey(env, oid)))) return new Response("This preview link isn't valid.", { status: 404 });
+    const rest = oid + (parts.length > 2 ? "/" + parts.slice(2).join("/") : ""), slash = parts.length > 2 ? oid.length : -1;
+    const o = await db.prepare("SELECT preview_html, github FROM orders WHERE id = ?").bind(oid).first();
     const safe = { "cache-control": "no-store", "content-security-policy": "sandbox allow-scripts allow-forms allow-popups allow-modals", "x-robots-tag": "noindex" };
     if (o && o.github) {
-      if (slash < 0) return new Response(null, { status: 302, headers: { location: "/api/preview/" + oid + "/" } });
+      if (slash < 0) return new Response(null, { status: 302, headers: { location: "/api/preview/" + oid + "/" + key + "/" } });
       let file = decodeURIComponent(rest.slice(slash + 1)).replace(/^\/+/, "");
       if (file.split("/").includes("..")) return new Response("Not found", { status: 404 });
       if (!file || file.endsWith("/")) file += "index.html";
@@ -374,7 +377,9 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY created_at DESC").bind(u.id).all();
-    return json({ orders: r.results || [] });
+    const orders = r.results || [];
+    for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
+    return json({ orders });
   }
 
   // ---- admin (the owner, with the ADMIN_KEY secret) ----
@@ -486,7 +491,7 @@ export default {
         return page(OWNER(""));
       }
       // the down page needs its logo; the admin API is still protected by its own key
-      const open = p === "/logo.png" || p.startsWith("/api/admin/");
+      const open = p === "/logo.png" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
       if (!open && !(await isOwner(env, req))) {
         if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
         return page(DOWN(), 503, { "retry-after": "3600" });
