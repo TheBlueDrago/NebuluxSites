@@ -130,7 +130,7 @@ const FEAT = {
   monthly5: ["Standard priority: about 1 month", "Live preview while we build", "Changes until you love it", "Your website as a ZIP + setup steps"],
 };
 fetch("/api/packages").then((r) => r.json()).then(({ packages }) => {
-  const order = ["onetime", "monthly3", "monthly5"].filter((k) => packages[k]);
+  const order = ["monthly5", "monthly3", "onetime"].filter((k) => packages[k]);
   document.getElementById("plans").innerHTML = order.map((id, i) => {
     const p = packages[id], best = id === "onetime", per = p.label.includes("/month");
     return `<div class="plan rv d${i}${best ? " best" : ""}"><span class="tagp">${best ? "Best deal · " : ""}${p.priority}</span><h3>${p.name === "One time" ? "One payment" : p.name + " plan"}</h3><div class="pr">${p.label.replace("/month", "")}<small>${per ? " /month" : " once"}</small></div><div class="tot">${per ? p.small + " · $" + p.price + " total" : "Pay once and save"}</div><ul>${(FEAT[id] || []).map((f) => `<li>${f}</li>`).join("")}</ul><a class="btn ${best ? "lux" : "glass"}" href="/account.html?package=${id}#req">Choose this plan</a></div>`;
