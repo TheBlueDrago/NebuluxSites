@@ -55,7 +55,7 @@ async function allow(key, max, sec) {
 const INSTALL = { monthly5: 49, monthly3: 75 };
 function billFor(o) {
   const paid = o.paid_total || 0, left = Math.max(0, (o.price || 0) - paid);
-  if (o.status === "awaiting deposit") return { due: "deposit", amount: 5, label: "starting fee", paid, left };
+  if (o.status === "awaiting deposit" && left > 0) return { due: "deposit", amount: Math.min(5, left), label: "starting fee", paid, left };
   if (o.status === "awaiting payment" && left > 0) {
     const n = INSTALL[o.package];
     return { due: "rest" + Math.round(paid), amount: n ? Math.min(n, left) : left, label: n ? `monthly payment ($${n}/month)` : "the rest of the price", paid, left };
@@ -313,10 +313,12 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
     const p = code && (await db.prepare("SELECT * FROM promos WHERE code = ?").bind(code).first());
     if (!p || !p.active || (p.max_uses && p.uses >= p.max_uses) || (p.expires && p.expires < Date.now())) return json({ error: "That code isn't valid." }, 400);
-    const price = Math.max(Math.ceil(o.paid_total || 0), 5, Math.round((o.price || 0) * (100 - p.percent) / 100));
+    const price = Math.max(Math.ceil(o.paid_total || 0), Math.round((o.price || 0) * (100 - p.percent) / 100));
     const done = await db.prepare("UPDATE orders SET promo = ?, price_before = price, price = ?, updated_at = ? WHERE id = ? AND (promo IS NULL OR promo = '')").bind(code, price, new Date().toISOString(), o.id).run();
     if (!done.meta || !done.meta.changes) return json({ error: "This order already has a promo code." }, 400);
     await db.prepare("UPDATE promos SET uses = uses + 1 WHERE code = ?").bind(code).run();
+    // Nothing left to pay (like a 100% code): skip the payment step.
+    if (price <= (o.paid_total || 0) && ["awaiting deposit", "awaiting payment"].includes(o.status)) await db.prepare("UPDATE orders SET status = ? WHERE id = ?").bind(o.status === "awaiting deposit" ? "building" : "complete", o.id).run();
     return json({ ok: true, percent: p.percent, price });
   }
 
@@ -389,7 +391,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
         const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
         const pct = Math.round(+body.percent);
         if (code.length < 3) return json({ error: "Codes need at least 3 letters or numbers." }, 400);
-        if (!(pct >= 1 && pct <= 90)) return json({ error: "The discount has to be 1% to 90%." }, 400);
+        if (!(pct >= 1 && pct <= 100)) return json({ error: "The discount has to be 1% to 100%." }, 400);
         const days = Math.max(0, Math.min(3650, Math.round(+body.days || 0)));
         await db.prepare("INSERT OR REPLACE INTO promos (code, percent, uses, max_uses, expires, active, created_at) VALUES (?, ?, 0, ?, ?, 1, ?)")
           .bind(code, pct, Math.max(0, Math.round(+body.max_uses || 0)), days ? Date.now() + days * 86400000 : 0, new Date().toISOString()).run();

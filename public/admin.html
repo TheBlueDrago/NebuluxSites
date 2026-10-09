@@ -12,8 +12,8 @@
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
   <div class="box wide" id="promos" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left">Promo codes</h2>
-    <p class="muted">A percentage off a website's price. Customers type it on the Billing page (one code per order).</p>
-    <div class="row" style="margin-top:10px"><input id="pcode" placeholder="CODE" maxlength="24" style="width:150px;text-transform:uppercase"><input id="ppct" type="number" min="1" max="90" placeholder="% off" style="width:100px"><input id="pmax" type="number" min="0" placeholder="Max uses (0 = no limit)" style="width:200px"><input id="pdays" type="number" min="0" placeholder="Days it works (0 = forever)" style="width:210px"><button class="btn" id="padd">Add code</button></div>
+    <p class="muted">A percentage off a website's price. Customers type it on the Billing page (one code per order, 100% makes it free).</p>
+    <div class="row" style="margin-top:10px"><input id="pcode" placeholder="CODE" maxlength="24" style="width:150px;text-transform:uppercase"><input id="ppct" type="number" min="1" max="100" placeholder="% off" style="width:100px"><input id="pmax" type="number" min="0" placeholder="Max uses (0 = no limit)" style="width:200px"><input id="pdays" type="number" min="0" placeholder="Days it works (0 = forever)" style="width:210px"><button class="btn" id="padd">Add code</button></div>
     <p class="err" id="perr"></p><div id="plist"></div>
   </div>
   <div class="box wide" id="list" style="display:none"></div>
