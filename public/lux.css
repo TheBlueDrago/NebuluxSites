@@ -95,3 +95,15 @@ details.msgs{max-width:none;margin:16px 0 0}
 .total:empty{display:none}
 .addons label{transition:border-color .2s,background .2s,transform .2s}.addons label:hover{transform:translateY(-2px)}
 .dside{box-shadow:0 30px 80px -40px rgba(120,70,255,.6),inset 0 1px 0 rgba(255,255,255,.08)}
+@media (max-width:640px){
+  .tiles{grid-template-columns:repeat(3,1fr)!important;gap:8px;margin-bottom:14px}
+  .tile{padding:12px 10px;border-radius:16px!important}
+  .tile small{font-size:10px;letter-spacing:.02em}
+  .tile b{font-size:20px!important;padding:2px 0!important;line-height:1.15}
+  .tile span{font-size:11px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dhero{padding:18px;margin-bottom:14px;border-radius:20px}
+  .dhcta{width:100%}.dhcta .btn{flex:1;text-align:center;padding:11px 12px}
+  .dh{font-size:24px}
+}
+.dmain{min-width:0}
+@media (max-width:640px){.dmain{padding-right:4px}.tile b{font-size:16px!important}.tile:first-child b,.tile:last-child b{font-size:20px!important}.order{padding:16px}.order h3{font-size:19px}}
