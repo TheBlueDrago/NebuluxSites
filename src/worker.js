@@ -87,7 +87,7 @@ async function startSession(env, userId, remember) {
   if (remember) {
     const t = randomHex(32);
     await env.DB.prepare("INSERT INTO trusted (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(t), userId, Date.now() + 30 * 86400000).run();
-    headers.append("set-cookie", setCookie("ns_trust", t, 30));
+    headers.append("set-cookie", setCookie("ns_trust2", t, 30));
   }
   return new Response(JSON.stringify({ ok: true }), { headers });
 }
@@ -98,7 +98,7 @@ async function currentUser(env, req) {
   return env.DB.prepare("SELECT id, email, name FROM users WHERE id = ?").bind(s.user_id).first();
 }
 async function trustedFor(env, req, userId) {
-  const t = cookie(req, "ns_trust"); if (!t) return false;
+  const t = cookie(req, "ns_trust2"); if (!t) return false;
   const row = await env.DB.prepare("SELECT user_id, expires FROM trusted WHERE token_hash = ?").bind(await sha(t)).first();
   return !!(row && row.user_id === userId && row.expires > Date.now());
 }
