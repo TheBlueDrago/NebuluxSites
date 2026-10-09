@@ -3,6 +3,8 @@
   const QA = [
     ["What do I get?", "A ZIP file with your whole website (all its pages, pictures and code). It's yours to keep."],
     ["Do you buy the domain and hosting?", "No. You buy your own domain (like mybakery.com) and hosting. Then you upload the ZIP file there. We send you clear, step-by-step instructions for how to do it."],
+    ["Can my website take payments?", "Yes, we can add checkout and payment buttons. You set up your own payment provider account (like Stripe, PayPal or Square) so the money goes to you, and we give you the steps to connect it."],
+    ["What do I set up myself?", "Your domain, your hosting, and a payment provider account if your website takes payments. None of these are included in our price, but we show you exactly how."],
     ["How do I put my website online?", "1) Buy a domain and hosting (for example from Cloudflare, Netlify, GoDaddy or Hostinger). 2) Download your ZIP file from your account. 3) Upload it to your hosting and connect your domain. We give you the exact steps for the host you pick."],
     ["How does paying work?", "Sending a request is free. When we accept it, you pay a $5 starting fee on the Billing page. When your website is finished, you pay the rest there (by card or Apple Pay), and you get your ZIP file."],
     ["How long does it take?", "One time ($199): about 1–2 weeks. $75/month: about 2–3 weeks. $49/month: about 1 month."],
