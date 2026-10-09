@@ -786,7 +786,7 @@ async function handle(req, env, url) {
         return page(OWNER(""));
       }
       // the down page needs its logo; the admin API is still protected by its own key
-      const open = p === "/logo.png" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
+      const open = p === "/sitemap.xml" || p === "/robots.txt" || p === "/logo.png" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
       if (!open && !(await isOwner(env, req))) {
         if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
         // Google checking site ownership (Search Console) needs a normal answer, not "down".
