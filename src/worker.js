@@ -72,6 +72,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS trusted (token_hash TEXT PRIMARY KEY, user_id TEXT, expires INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
@@ -338,6 +339,7 @@ Accept it on the admin page: ${SITE}/admin.html (set it to "awaiting deposit" an
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT * FROM orders WHERE status != 'cancelled' ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/waitlist") { const r = await db.prepare("SELECT email, created_at FROM waitlist ORDER BY created_at DESC LIMIT 5000").all(); return json({ people: r.results || [] }); }
     if (path === "/api/admin/promos") {
       if (req.method === "POST" && body.action === "create") {
         const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
@@ -392,9 +394,53 @@ Nebulux Sites`;
   return json({ error: "Not found" }, 404);
 }
 
+// ---- maintenance: the site is down for everyone except the owner ----
+// Turned on by MAINTENANCE = "on" in wrangler.toml. The owner opens /owner, types the ADMIN_KEY once,
+// and gets a cookie that lets them use the whole site for 30 days.
+const ownerToken = (env) => sha("nebulux-sites-owner:" + (env.ADMIN_KEY || ""));
+async function isOwner(env, req) { const c = cookie(req, "ns_owner"); return !!(c && env.ADMIN_KEY && (await sameText(c, await ownerToken(env)))); }
+const page = (html, status = 200, headers = {}) => new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...headers } });
+const SHELL = (body) => `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Nebulux Sites</title><link rel="icon" href="/logo.png"><style>
+*{box-sizing:border-box;margin:0}body{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at top,#2a1b5c,#05040f 65%);color:#f5f3ff;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center}
+.c{max-width:520px}img{width:84px;height:84px;border-radius:22px;box-shadow:0 20px 60px -10px rgba(160,100,255,.7)}h1{font-size:clamp(30px,6vw,44px);letter-spacing:-.03em;margin:24px 0 12px}p{color:#a9a3cf;font-size:18px;line-height:1.6}
+form{margin-top:24px;display:flex;gap:8px}input{flex:1;font:inherit;font-size:16px;padding:13px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff}button{border:0;border-radius:12px;padding:0 20px;font:inherit;font-weight:800;color:#fff;background:linear-gradient(100deg,#6b5bff,#d16cf5);cursor:pointer}.e{color:#ff8a80;margin-top:12px;font-size:15px}
+</style></head><body><div class="c"><img src="/logo.png" alt="">${body}</div></body></html>`;
+const DOWN = (msg = "", ok = false) => SHELL(`<h1>We'll be right back</h1><p>Sorry, Nebulux Sites is down for maintenance right now. We're making it even better. Please check back soon!</p>` +
+  (ok ? `<p style="margin-top:24px;color:#86efac;font-weight:700">You're on the list! We'll email you when we're back.</p>`
+      : `<p style="margin-top:26px;font-size:16px">Want to know when we're back? Leave your email.</p><form method="POST" action="/notify"><input type="email" name="email" placeholder="you@example.com" required maxlength="120"><button>Notify me</button></form>${msg ? '<p class="e">' + msg + "</p>" : ""}<p style="font-size:13px;margin-top:10px">We'll only use it to tell you when Nebulux Sites opens.</p>`));
+const OWNER = (err) => SHELL(`<h1>Owner sign-in</h1><p>Type your admin key to use the site while it's down.</p><form method="POST" action="/owner"><input type="password" name="key" placeholder="Admin key" autofocus required><button>Enter</button></form>${err ? '<p class="e">' + err + "</p>" : ""}`);
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (env.MAINTENANCE === "on") {
+      const p = url.pathname;
+      if (p === "/notify" && req.method === "POST") {
+        const ip = req.headers.get("cf-connecting-ip") || "unknown";
+        if (!(await allow("notify:" + ip, 5, 3600))) return page(DOWN("Too many tries. Please try again later."), 429);
+        const email = String((await req.formData().catch(() => null))?.get("email") || "").trim().toLowerCase().slice(0, 120);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return page(DOWN("That email doesn't look right."), 400);
+        await ensure(env.DB);
+        await env.DB.prepare("INSERT OR IGNORE INTO waitlist (email, created_at) VALUES (?, ?)").bind(email, new Date().toISOString()).run();
+        return page(DOWN("", true));
+      }
+      if (p === "/owner") {
+        if (req.method === "POST") {
+          const ip = req.headers.get("cf-connecting-ip") || "unknown";
+          if (!(await allow("owner:" + ip, 10, 900))) return page(OWNER("Too many tries. Wait 15 minutes."), 429);
+          const key = (await req.formData().catch(() => null))?.get("key") || "";
+          if (!env.ADMIN_KEY || !(await sameText(String(key), env.ADMIN_KEY))) return page(OWNER("That key isn't right."), 403);
+          return new Response(null, { status: 302, headers: { location: "/", "set-cookie": setCookie("ns_owner", await ownerToken(env), 30) } });
+        }
+        return page(OWNER(""));
+      }
+      // the down page needs its logo; the admin API is still protected by its own key
+      const open = p === "/logo.png" || p.startsWith("/api/admin/");
+      if (!open && !(await isOwner(env, req))) {
+        if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
+        return page(DOWN(), 503, { "retry-after": "3600" });
+      }
+    }
     if (url.pathname.startsWith("/api/")) {
       try { await ensure(env.DB); return await api(req, env, url.pathname); }
       catch (e) { return json({ error: e.status ? e.message : "Something went wrong. Please try again." }, e.status || 500); }

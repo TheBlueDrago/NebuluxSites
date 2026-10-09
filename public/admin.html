@@ -9,6 +9,7 @@
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
   <div class="box wide" id="promos" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left">Promo codes</h2>
     <p class="muted">A percentage off a website's price. Customers type it on the Billing page (one code per order).</p>
@@ -25,7 +26,7 @@ const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers:
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos();
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist();
   $("list").innerHTML = `<h2 style="margin:0 0 12px;text-align:left">Orders (${r.orders.length})</h2>` + (r.orders.map((o) => `
     <div class="card" style="margin-bottom:12px">
       <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
@@ -64,6 +65,11 @@ async function promos(body) {
   $("plist").innerHTML = r.promos.length ? `<table><tr><th>Code</th><th>Off</th><th>Used</th><th>Ends</th><th></th></tr>${r.promos.map((p) => `<tr><td><b>${esc(p.code)}</b>${p.active ? "" : ' <span class="tag">off</span>'}</td><td>${p.percent}%</td><td>${p.uses}${p.max_uses ? " / " + p.max_uses : ""}</td><td>${p.expires ? new Date(p.expires).toLocaleDateString() : "never"}</td><td><button class="btn ghost" data-pt="${esc(p.code)}">${p.active ? "Turn off" : "Turn on"}</button> <button class="btn ghost" data-pd="${esc(p.code)}">Delete</button></td></tr>`).join("")}</table>` : '<p class="muted">No codes yet.</p>';
   document.querySelectorAll("[data-pt]").forEach((b) => (b.onclick = () => promos({ action: "toggle", code: b.dataset.pt })));
   document.querySelectorAll("[data-pd]").forEach((b) => (b.onclick = () => confirm("Delete " + b.dataset.pd + "?") && promos({ action: "delete", code: b.dataset.pd })));
+}
+async function waitlist() {
+  const r = await call("/api/admin/waitlist"); if (!r.ok) return;
+  $("wl").style.display = ""; $("wlc").textContent = "· " + r.people.length;
+  $("wlist").innerHTML = r.people.length ? "<table>" + r.people.map((p) => `<tr><td>${esc(p.email)}</td><td class="muted">${new Date(p.created_at).toLocaleString()}</td></tr>`).join("") + "</table>" : '<p class="muted">Nobody yet.</p>';
 }
 $("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };

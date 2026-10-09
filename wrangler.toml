@@ -8,10 +8,14 @@ name = "nebuluxsites"
 main = "src/worker.js"
 compatibility_date = "2026-09-22"
 
+# The site is down for everyone but the owner while this is "on" (owner link: /owner). Set to "off" to open it.
+[vars]
+MAINTENANCE = "on"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
