@@ -1,0 +1,31 @@
+/* The premium look for every inner page (account, billing, legal, admin). Loaded after style.css. */
+:root{--bg:#05040f;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.075);--line:rgba(255,255,255,.09);--muted:#a7a1cc}
+body{background:#05040f;font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+body::before,body::after{display:none}
+#stars{position:fixed;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none}
+.aurora{position:fixed;inset:-20vh -10vw auto;height:80vh;z-index:-1;pointer-events:none;background:radial-gradient(50% 60% at 20% 30%,rgba(108,84,255,.32),transparent 70%),radial-gradient(40% 50% at 80% 15%,rgba(214,92,245,.22),transparent 70%);filter:blur(30px);animation:drift 18s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(3vw,4vh,0) scale(1.08)}}
+h1,h2,h3,.dh,.logo{font-family:"Sora","Inter",system-ui,sans-serif;letter-spacing:-.025em}
+header{background:rgba(5,4,15,.6);border-bottom:1px solid var(--line);padding:14px 5vw}
+.box,.card,.order,.doc,.dside,.sum div{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line);backdrop-filter:blur(16px);box-shadow:0 30px 80px -40px rgba(110,70,255,.55)}
+.box{border-radius:28px;padding:34px}
+.order{border-radius:24px;padding:26px}
+.btn{border-radius:14px;padding:13px 22px;box-shadow:0 10px 30px -10px rgba(193,90,240,.7)}
+.btn.ghost{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
+input,textarea,select{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:13px 15px;transition:border-color .2s,box-shadow .2s}
+input:focus,textarea:focus,select:focus{border-color:#d16cf5;box-shadow:0 0 0 4px rgba(209,108,245,.15)}
+label{color:#e4dfff}
+.tag{border:1px solid var(--line)}
+.pk label{border-radius:18px;padding:16px;transition:border-color .2s,background .2s,transform .2s}.pk label:hover{transform:translateY(-2px)}
+.pk label:has(input:checked){background:linear-gradient(180deg,rgba(124,92,255,.18),rgba(209,108,245,.06));box-shadow:0 0 0 1px #d16cf5,0 20px 40px -20px rgba(209,108,245,.8)}
+.browser{border-radius:18px;box-shadow:0 40px 100px -40px rgba(120,70,255,.7)}
+.steps i{background:#0d0b22}
+.fade-in{animation:fin .6s cubic-bezier(.2,.7,.2,1) both}@keyframes fin{from{opacity:0;transform:translateY(14px)}}
+.dside{padding-bottom:78px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.tile{padding:18px 20px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line)}
+.tile small{display:block;color:var(--muted);font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.tile b{display:block;font-family:"Sora",sans-serif;font-size:30px;letter-spacing:-.03em;margin-top:4px;background:linear-gradient(180deg,#fff,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tile span{color:var(--muted);font-size:13px}
+.order h3{color:#fff}
+@media (max-width:860px){.tiles{grid-template-columns:1fr}.dside{padding-bottom:10px}}

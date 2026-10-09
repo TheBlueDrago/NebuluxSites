@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terms, User Agreement & Privacy · Nebulux Sites</title>
-<link rel="icon" href="/logo.png"><link rel="stylesheet" href="/style.css">
+<link rel="icon" href="/logo.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>
 .lwrap{display:grid;grid-template-columns:230px 1fr;gap:36px;max-width:1080px;margin:0 auto;align-items:start}
 .side{position:sticky;top:90px;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
@@ -110,5 +110,6 @@ const io=new IntersectionObserver((es)=>es.forEach((e)=>{if(e.isIntersecting)lin
 document.querySelectorAll(".doc,[id=liability]").forEach((el)=>io.observe(el));
 </script>
 <script src="/help.js" defer></script>
+<script src="/lux.js" defer></script>
 </body>
 </html>
