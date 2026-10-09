@@ -174,3 +174,23 @@ body.home nav a:not(.btn){font-size:15px}
 /* section dividers */
 .sh::before{content:"";display:block;width:1px;height:70px;margin:0 auto 26px;background:linear-gradient(transparent,rgba(209,108,245,.6))}
 .hx h1 .rot{display:inline-block;color:#f0abfc;text-shadow:0 0 40px rgba(240,171,252,.45)}.hx h1 .dot2{color:#c4b5fd}
+
+/* header + phone menu */
+body.home header{transition:background .3s,padding .3s,box-shadow .3s}
+body.home.scrolled header{background:rgba(5,4,15,.85);box-shadow:0 10px 40px -20px rgba(0,0,0,.8);padding-top:10px;padding-bottom:10px}
+.menu-btn{display:none;width:44px;height:44px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.05);flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+.menu-btn span{width:18px;height:2px;border-radius:2px;background:#fff;transition:transform .3s,opacity .3s}
+body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45deg)}body.menu-open .menu-btn span:nth-child(2){opacity:0}body.menu-open .menu-btn span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.mobile-cta{display:none}
+@media (max-width:900px){
+  .menu-btn{display:flex}
+  body.home nav{position:fixed;inset:64px 12px auto 12px;flex-direction:column;align-items:stretch;gap:4px;padding:14px;border-radius:20px;background:rgba(12,10,32,.97);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(20px);box-shadow:0 30px 80px -20px rgba(0,0,0,.9);opacity:0;transform:translateY(-10px) scale(.98);pointer-events:none;transition:opacity .25s,transform .25s}
+  body.home.menu-open nav{opacity:1;transform:none;pointer-events:auto}
+  body.home nav a:not(.btn){display:block!important;padding:13px 14px;border-radius:12px;font-size:17px;color:#e9e5ff}
+  body.home nav a:not(.btn):hover{background:rgba(255,255,255,.06)}
+  body.home nav .btn{margin-top:6px;text-align:center}
+  .mobile-cta{display:block;position:fixed;left:16px;right:16px;bottom:16px;z-index:40;padding:16px;border-radius:16px;text-align:center;font-weight:800;color:#0b0820;background:#fff;text-decoration:none;box-shadow:0 14px 40px -10px rgba(190,140,255,.9);transform:translateY(140%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+  body.past-hero .mobile-cta{transform:none}
+  body.past-hero #helpBtn{bottom:86px}
+}
+@media (max-width:900px){.sh{margin:90px auto 36px}.sh::before{height:44px;margin-bottom:18px}#helpBtn{padding:12px 15px;font-size:0;gap:0}#helpBtn span{font-size:18px}}

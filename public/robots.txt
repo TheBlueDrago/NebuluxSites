@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /account.html
+Disallow: /billing.html
+Disallow: /admin.html
+Disallow: /api/
+Sitemap: https://nebuluxsites.thebluedragonstriker.workers.dev/sitemap.xml

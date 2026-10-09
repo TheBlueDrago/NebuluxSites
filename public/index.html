@@ -4,7 +4,11 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nebulux Sites · Your website, built for you</title>
 <meta name="description" content="Tell us the website you want. We design and build it, you watch it come to life with a live preview, and you get the whole site as a ZIP. Free to request, $5 to start.">
-<meta property="og:title" content="Nebulux Sites · Your website, built for you"><meta property="og:image" content="/ex-goldenbatch.jpg">
+<meta property="og:title" content="Nebulux Sites · Your website, built for you"><meta property="og:description" content="Tell us what you want, watch it get built live, and get your whole website as a ZIP. Free to request, $5 to start.">
+<meta property="og:image" content="https://nebuluxsites.thebluedragonstriker.workers.dev/ex-goldenbatch.jpg"><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#05040f"><link rel="canonical" href="https://nebuluxsites.thebluedragonstriker.workers.dev/">
+<link rel="preload" as="image" href="/ex-goldenbatch.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfessionalService","name":"Nebulux Sites","url":"https://nebuluxsites.thebluedragonstriker.workers.dev/","logo":"https://nebuluxsites.thebluedragonstriker.workers.dev/logo.png","description":"Done-for-you websites: tell us what you want, watch it get built live, and get your whole website as a ZIP.","priceRange":"$49-$199","offers":[{"@type":"Offer","name":"One payment","price":"199","priceCurrency":"USD"},{"@type":"Offer","name":"3 months plan","price":"75","priceCurrency":"USD"},{"@type":"Offer","name":"5 months plan","price":"49","priceCurrency":"USD"}]}</script>
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -14,7 +18,8 @@
 <canvas id="stars"></canvas><div class="aurora"></div><div class="glow" id="glow"></div>
 <header>
   <a class="logo display" href="/"><img src="/logo.png" alt="">Nebulux Sites</a>
-  <nav><a href="#work">Work</a><a href="#how">Process</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/account.html">Log in</a><a class="btn lux" href="/account.html#req">Start a website</a></nav>
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+  <nav id="nav"><a href="#try">Try it</a><a href="#work">Work</a><a href="#how">Process</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/account.html">Log in</a><a class="btn lux" href="/account.html#req">Start a website</a></nav>
 </header>
 <main>
   <section class="hx">
@@ -190,6 +195,19 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages }) => {
   }).join("");
   watch();
 }).catch(() => {});
+</script>
+<a class="mobile-cta" href="/account.html#req">Start my website →</a>
+<script>
+// phone menu
+(() => {
+  const b = document.getElementById("menuBtn"), n = document.getElementById("nav");
+  const set = (open) => { document.body.classList.toggle("menu-open", open); b.setAttribute("aria-expanded", open); };
+  b.onclick = () => set(!document.body.classList.contains("menu-open"));
+  n.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
+  // header gets solid after scrolling; the phone button shows once past the top
+  const onScroll = () => { document.body.classList.toggle("scrolled", scrollY > 20); document.body.classList.toggle("past-hero", scrollY > innerHeight * 0.7); };
+  addEventListener("scroll", onScroll, { passive: true }); onScroll();
+})();
 </script>
 <script src="/help.js" defer></script>
 </body>

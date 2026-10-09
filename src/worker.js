@@ -485,9 +485,44 @@ const DOWN = (msg = "", ok = false) => SHELL(`<h1>We'll be right back</h1><p>Sor
       : `<p style="margin-top:26px;font-size:16px">Want to know when we're back? Leave your email.</p><form method="POST" action="/notify"><input type="email" name="email" placeholder="you@example.com" required maxlength="120"><button>Notify me</button></form>${msg ? '<p class="e">' + msg + "</p>" : ""}<p style="font-size:13px;margin-top:10px">We'll only use it to tell you when Nebulux Sites opens.</p>`));
 const OWNER = (err) => SHELL(`<h1>Owner sign-in</h1><p>Type your admin key to use the site while it's down.</p><form method="POST" action="/owner"><input type="password" name="key" placeholder="Admin key" autofocus required><button>Enter</button></form>${err ? '<p class="e">' + err + "</p>" : ""}`);
 
+// ---- safety on every response ----
+// No other website can show these pages in a frame (click-jacking), browsers only use HTTPS,
+// never guess file types, don't tell other sites which page someone came from, and pages
+// can't use the camera, microphone or location. Requests that change things (POST) must come
+// from this site itself, so another website can't act as a signed-in customer.
+const SAFE = {
+  "x-frame-options": "SAMEORIGIN",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), usb=()",
+  "cross-origin-opener-policy": "same-origin-allow-popups",
+};
+function secure(res) {
+  const r = new Response(res.body, res);
+  for (const [k, v] of Object.entries(SAFE)) if (!r.headers.has(k)) r.headers.set(k, v);
+  if (!r.headers.has("content-security-policy")) r.headers.set("content-security-policy", "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
+  return r;
+}
+function sameSite(req, url) {
+  if (req.method === "GET" || req.method === "HEAD") return true;
+  const o = req.headers.get("origin");
+  if (o) return o === url.origin;
+  const site = req.headers.get("sec-fetch-site");
+  return !site || site === "same-origin" || site === "none";
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    // The admin API is called with its key from scripts too (and Nebulux AI's owner check).
+    if (!url.pathname.startsWith("/api/admin/") && !sameSite(req, url)) return secure(json({ error: "This request has to come from Nebulux Sites itself." }, 403));
+    return secure(await handle(req, env, url));
+  },
+};
+
+async function handle(req, env, url) {
+  {
     if (env.MAINTENANCE === "on") {
       const p = url.pathname;
       if (p === "/notify" && req.method === "POST") {
@@ -521,5 +556,6 @@ export default {
       catch (e) { return json({ error: e.status ? e.message : "Something went wrong. Please try again." }, e.status || 500); }
     }
     return env.ASSETS.fetch(req);
-  },
-};
+  }
+}
+
