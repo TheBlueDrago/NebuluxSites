@@ -74,7 +74,7 @@
     </aside>
     <section class="dmain">
       <div id="v-dash">
-        <div class="dhero"><div><p class="dkick" id="dhi">Welcome back</p><h2 class="dh" id="dhName">Your dashboard</h2><p class="muted dsub" style="margin-bottom:0">Your websites, their status and our progress, live.</p></div><div class="dhcta"><button class="btn" onclick="view('req')">＋ New website</button><a class="btn ghost" href="/billing.html">Billing</a></div></div>
+        <div class="dhero"><div><p class="dkick" id="dhi">Welcome back</p><h2 class="dh" id="dhName">Your dashboard</h2><p class="muted dsub" style="margin-bottom:0">Your websites, their status and our progress, live.</p></div><div class="dhcta"><button class="btn" id="dhNew" onclick="view('req')">＋ New website</button><a class="btn ghost" href="/billing.html">Billing</a></div></div>
         <div id="orders" class="muted">No websites yet.</div>
       </div>
       <div id="v-prev" style="display:none">
@@ -287,6 +287,7 @@ async function loadOrders() {
   const nextStep = !act ? "Request a website" : { "in review": "We're reviewing it", "awaiting deposit": "Pay your $5 fee", building: "We're building it", "awaiting payment": "Pay the rest" }[act.status] || act.status;
   const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : 0}%</b><span>${act ? esc(act.kind || act.id) : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
   $("orders").innerHTML = list.length ? tiles + list.map(orderCard).join("") : `<div class="dempty"><div class="dorb"></div><h2>Let&rsquo;s build your website</h2><p class="muted">Tell us what you want. Sending a request is free, and we reply fast.</p><div class="dhow"><div><i>1</i><b>Request</b><span>Describe it, for free</span></div><div><i>2</i><b>$5 to start</b><span>Comes off your price</span></div><div><i>3</i><b>Watch it grow</b><span>Live preview here</span></div><div><i>4</i><b>Get it</b><span>Your ZIP, ready to go live</span></div></div><button class="btn" style="margin-top:20px" onclick="view('req')">Request a website →</button></div>`;
+  $("dhNew").style.display = act ? "none" : "";
   drawRequest(); if ($("v-prev").style.display !== "none") drawPreview();
   for (const id of openMsgs) { const d = document.querySelector(`details.msgs[data-mid="${id}"]`); if (d) d.open = true; }
 }
