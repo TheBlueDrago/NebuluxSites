@@ -95,8 +95,8 @@ function orderCard(o) {
   const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
   let ups = []; try { ups = JSON.parse(o.updates || "[]"); } catch {}
   const due = o.status === "awaiting deposit" ? "deposit" : o.status === "awaiting payment" ? "rest" : "";
-  const pay = !due ? (o.status === "in review" ? '<p class="muted">We're looking at your request. We'll email you when we accept it.</p>' : "")
-    : o.claimed === o.status ? '<p class="muted">Thanks! We'll confirm your payment soon.</p>'
+  const pay = !due ? (o.status === "in review" ? '<p class="muted">We&rsquo;re looking at your request. We&rsquo;ll email you when we accept it.</p>' : "")
+    : o.claimed === o.status ? '<p class="muted">Thanks! We&rsquo;ll confirm your payment soon.</p>'
     : o.pay_link ? `<div class="row"><a class="btn" href="${esc(o.pay_link)}" target="_blank" rel="noopener noreferrer">${due === "deposit" ? "Pay $5 to continue" : "Pay the rest"}</a><button class="btn ghost" onclick="paid('${esc(o.id)}')">I've paid</button></div>`
     : '<p class="muted">Your payment link is coming soon.</p>';
   return `<div class="order">
