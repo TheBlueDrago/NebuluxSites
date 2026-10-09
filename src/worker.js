@@ -25,7 +25,15 @@ export const ADDONS = {
 // MSG_BLOCK more for MSG_PRICE dollars on the Billing page (so people describe things up front).
 const FREE_MSGS = 5, MSG_BLOCK = 10, MSG_PRICE = 1;
 // A customer's first website: FIRST_OFF percent off the plan (not the add-ons), applied automatically.
-const FIRST_OFF = 30;
+const FIRST_OFF = 30, FIRST_DAYS = 2;
+// Who still gets it: no earlier order that went ahead, and the account is under 2 days old.
+async function firstDeal(db, userId) {
+  const u = await db.prepare("SELECT created_at FROM users WHERE id = ?").bind(userId).first();
+  const ends = u ? Date.parse(u.created_at) + FIRST_DAYS * 86400000 : 0;
+  if (!ends || ends < Date.now()) return { ok: false, ends: 0 };
+  const before = await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status != 'cancelled' LIMIT 1").bind(userId).first();
+  return { ok: !before, ends };
+}
 const DEPOSIT = 5;
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
 // (you finish) awaiting payment -> complete. Customers get an email when you accept and when
@@ -129,6 +137,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
+  await db.prepare("ALTER TABLE users ADD COLUMN signup_net TEXT DEFAULT ''").run().catch(() => {});
   for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   ready = true;
 }
@@ -159,6 +168,14 @@ async function startSession(env, userId, remember) {
     headers.append("set-cookie", setCookie("ns_trust2", t, 30));
   }
   return new Response(JSON.stringify({ ok: true }), { headers });
+}
+// At most MAX_ACCOUNTS accounts per internet connection (the owner, with the owner cookie, is never limited).
+const MAX_ACCOUNTS = 3;
+const netOf = async (req) => (await sha("net:" + (req.headers.get("cf-connecting-ip") || ""))).slice(0, 32);
+async function tooManyAccounts(env, req) {
+  if (await isOwner(env, req)) return false;
+  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE signup_net = ? AND verified = 1").bind(await netOf(req)).first();
+  return (r && r.n) >= MAX_ACCOUNTS;
 }
 async function currentUser(env, req) {
   const t = cookie(req, "ns_session"); if (!t) return null;
@@ -213,7 +230,8 @@ async function api(req, env, path) {
     if (!info.email || !info.email_verified) return bad;
     const email = String(info.email).toLowerCase();
     let user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
-    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at) VALUES (?, ?, ?, '', '', 1, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString()).run(); }
+    if (!user && (await tooManyAccounts(env, req))) return Response.redirect(origin + "/account.html?google=many", 302);
+    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, '', '', 1, ?, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString(), await netOf(req)).run(); }
     else await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(user.id).run();
     if (!(await trustedFor(env, req, user.id))) {
       await sendCode(env, email);
@@ -232,10 +250,11 @@ async function api(req, env, path) {
     if (pw.length < 8) return json({ error: "Use at least 8 characters for your password." }, 400);
     if (!name) return json({ error: "Tell us your name." }, 400);
     const existing = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
+    if (!existing && (await tooManyAccounts(env, req))) return json({ error: "There are already 3 accounts from this internet connection. Log in to one of them instead." }, 403);
     if (existing && existing.verified) return json({ error: "There's already an account with this email. Log in instead." }, 400);
     const salt = randomHex(16), hash = await hashPassword(pw, salt);
     if (existing) await db.prepare("UPDATE users SET name = ?, pw_hash = ?, pw_salt = ? WHERE id = ?").bind(name, hash, salt, existing.id).run();
-    else await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)").bind(randomHex(12), email, name, hash, salt, new Date().toISOString()).run();
+    else await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, ?, ?, 0, ?, ?)").bind(randomHex(12), email, name, hash, salt, new Date().toISOString(), await netOf(req)).run();
     await sendCode(env, email);
     return json({ needCode: true });
   }
@@ -345,8 +364,8 @@ async function api(req, env, path) {
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
     const extras = [...new Set(Array.isArray(body.addons) ? body.addons : [])].filter((a) => ADDONS[a]);
     // First website (no earlier order that went ahead): 30% off the plan.
-    const before = await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status != 'cancelled' LIMIT 1").bind(u.id).first();
-    const off = before ? 0 : Math.round(pkg.price * FIRST_OFF / 100);
+    const deal = await firstDeal(db, u.id);
+    const off = deal.ok ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
     const total = pkg.price - off + extras.reduce((n, a) => n + ADDONS[a].price, 0);
     await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
       .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
@@ -519,9 +538,9 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const r = await db.prepare("SELECT id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
-    const first = !(await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status != 'cancelled' LIMIT 1").bind(u.id).first());
+    const deal = await firstDeal(db, u.id), first = deal.ok;
     for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
-    return json({ orders, first, firstOff: FIRST_OFF });
+    return json({ orders, first, firstEnds: deal.ends, firstOff: FIRST_OFF });
   }
 
   // ---- admin (the owner, with the ADMIN_KEY secret) ----

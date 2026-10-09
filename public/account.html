@@ -106,7 +106,7 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
-let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30;
+let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30, FIRST_ENDS = 0;
 const want = new URLSearchParams(location.search).get("package");
 function show(id) { for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
 function setMode(m) {
@@ -250,7 +250,7 @@ async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) 
 async function loadOrders() {
   const r = await fetch("/api/orders").then((x) => x.json());
   const openMsgs = [...document.querySelectorAll("details.msgs[open]")].map((d) => d.dataset.mid);
-  const list = r.orders || []; ORDERS = list; FIRST = !!r.first; FIRST_OFF = r.firstOff || 30; if (window.sumUp) sumUp();
+  const list = r.orders || []; ORDERS = list; FIRST = !!r.first; FIRST_OFF = r.firstOff || 30; FIRST_ENDS = r.firstEnds || 0; if (window.sumUp) sumUp();
   const act = list.find(ACTIVE), paidAll = list.reduce((n, o) => n + (o.paid_total || 0), 0);
   const nextStep = !act ? "Request a website" : { "in review": "We're reviewing it", "awaiting deposit": "Pay your $5 fee", building: "We're building it", "awaiting payment": "Pay the rest" }[act.status] || act.status;
   const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : 0}%</b><span>${act ? esc(act.kind || act.id) : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
@@ -285,7 +285,7 @@ async function start() {
     const pk = document.querySelector('input[name="pkg"]:checked'), p = pk ? PKG[pk.value] : null; if (!p) return;
     const extra = [...document.querySelectorAll('input[name="addon"]:checked')].reduce((n, x) => n + ADDONS[x.value].price, 0);
     const off = FIRST ? Math.round(p.price * FIRST_OFF / 100) : 0;
-    $("total").innerHTML = `${off ? `<span class="firstoff">🎉 Your first website: ${FIRST_OFF}% off your plan (−$${off})</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
+    $("total").innerHTML = `${off ? `<span class="firstoff">🎉 New account deal: ${FIRST_OFF}% off your plan (−$${off}) · ends in ${Math.max(1, Math.round((FIRST_ENDS - Date.now()) / 3600000))} hours</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
   };
   $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
   show("app"); await loadOrders(); setInterval(loadOrders, 60000);
@@ -293,7 +293,7 @@ async function start() {
 }
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");
-if (gq) setTimeout(() => { $("authErr").textContent = gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
+if (gq) setTimeout(() => { $("authErr").textContent = gq === "many" ? "There are already 3 accounts from this internet connection. Log in to one of them instead." : gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
 start();
 </script>
 <script src="/help.js" defer></script>
