@@ -76,6 +76,8 @@ const cleanEmail = (e) => String(e || "").trim().toLowerCase().slice(0, 254);
 const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(e);
 const clip = (v, n) => String(v == null ? "" : v).slice(0, n);
 function cookie(req, name) { const m = (req.headers.get("cookie") || "").match(new RegExp("(?:^|; )" + name + "=([^;]+)")); return m ? m[1] : ""; }
+const WEAK = new Set(["password","password1","password123","12345678","123456789","1234567890","qwertyuiop","qwerty123","iloveyou","11111111","00000000","abcdefgh","abc12345","letmein1","football","baseball","sunshine","princess","welcome1","admin123","passw0rd","12341234","87654321","asdfghjk","nebulux1","nebuluxsites"]);
+const badPw = (pw) => pw.length < 8 ? "Use at least 8 characters for your password." : pw.length > 200 ? "That password is too long." : WEAK.has(pw.toLowerCase()) ? "That password is too easy to guess. Pick a different one." : "";
 const setCookie = (name, value, days) => `${name}=${value}; Path=/; Max-Age=${Math.round(days * 86400)}; HttpOnly; Secure; SameSite=Lax`;
 
 // a light per-network limit (Cloudflare's free cache)
@@ -237,7 +239,7 @@ async function api(req, env, path) {
     if (!(await allow("signup:" + ip, 10, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
     const email = cleanEmail(body.email), pw = String(body.password || ""), name = clip(body.name, 80).trim();
     if (!validEmail(email)) return json({ error: "Enter a real email address." }, 400);
-    if (pw.length < 8) return json({ error: "Use at least 8 characters for your password." }, 400);
+    if (badPw(pw)) return json({ error: badPw(pw) }, 400);
     if (!name) return json({ error: "Tell us your name." }, 400);
     const existing = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
     if (existing && existing.verified) return json({ error: "There's already an account with this email. Log in instead." }, 400);
@@ -252,7 +254,7 @@ async function api(req, env, path) {
     if (!(await allow("login:" + ip, 30, 900)) || !(await allow("login:" + email, 10, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
     const u = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
     if (u && !u.pw_hash) return json({ error: "This account uses Google. Press Continue with Google." }, 400);
-    if (!u || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) return json({ error: "Wrong email or password." }, 401);
+    if (!u || String(body.password || "").length > 200 || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) return json({ error: "Wrong email or password." }, 401);
     // a device that ticked "Remember me" skips the code
     if (u.verified && (await trustedFor(env, req, u.id))) return startSession(env, u.id, true);
     await sendCode(env, email);
@@ -292,7 +294,7 @@ async function api(req, env, path) {
   if (path === "/api/reset/finish" && req.method === "POST") {
     const email = cleanEmail(body.email), pw = String(body.password || "");
     if (!(await allow("verify:" + ip, 30, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
-    if (pw.length < 8) return json({ error: "Use at least 8 characters for your new password." }, 400);
+    if (badPw(pw)) return json({ error: badPw(pw) }, 400);
     const c = await db.prepare("SELECT * FROM codes WHERE email = ?").bind(email).first();
     if (!c || c.expires < Date.now() || c.tries >= 5) return json({ error: "That code has expired. Send a new one." }, 400);
     if (!(await sameText(await sha(String(body.code || "").trim()), c.code_hash))) {
