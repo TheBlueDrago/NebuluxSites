@@ -252,6 +252,27 @@ async function api(req, env, path) {
     await mail(env, email, "Your Nebulux Sites password was changed", "Your password was just changed, and every device was signed out. If this wasn't you, reset it again right away from the log-in page.");
     return startSession(env, u.id, false);
   }
+  // Account: sign out on every device, or delete the account (and its orders) for good.
+  if (path === "/api/account/logout-all" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    await db.batch([db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id), db.prepare("DELETE FROM trusted WHERE user_id = ?").bind(u.id)]);
+    return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
+  }
+  if (path === "/api/account/delete" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (cleanEmail(body.email) !== u.email) return json({ error: "Type your email exactly to confirm." }, 400);
+    const busy = await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status NOT IN ('complete', 'cancelled', 'in review') LIMIT 1").bind(u.id).first();
+    if (busy) return json({ error: `You have a website in the works (${busy.id}). Finish or cancel it before deleting your account.` }, 400);
+    await db.batch([
+      db.prepare("DELETE FROM orders WHERE user_id = ?").bind(u.id),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
+      db.prepare("DELETE FROM trusted WHERE user_id = ?").bind(u.id),
+      db.prepare("DELETE FROM codes WHERE email = ?").bind(u.email),
+      db.prepare("DELETE FROM users WHERE id = ?").bind(u.id),
+    ]);
+    if (env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE email = ?").bind(u.email).run().catch(() => {});
+    return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
+  }
   if (path === "/api/logout" && req.method === "POST") {
     const t = cookie(req, "ns_session");
     if (t) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha(t)).run();

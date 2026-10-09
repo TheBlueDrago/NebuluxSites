@@ -29,3 +29,5 @@ label{color:#e4dfff}
 .tile span{color:var(--muted);font-size:13px}
 .order h3{color:#fff}
 @media (max-width:860px){.tiles{grid-template-columns:1fr}.dside{padding-bottom:10px}}
+.modal{position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;padding:16px;background:rgba(3,2,10,.7);backdrop-filter:blur(6px)}
+button.dme{width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .2s}button.dme:hover{border-color:rgba(209,108,245,.5)}

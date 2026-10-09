@@ -26,6 +26,19 @@
     <p class="muted" style="margin-top:8px"><a href="#" id="forgot">Forgot your password?</a></p>
     <p class="muted" style="margin-top:10px" id="switchText">New here? <a href="#" id="switchMode">Create an account</a></p>
   </div>
+  <!-- account settings -->
+  <div id="acctModal" class="modal" style="display:none"><div class="box" style="margin:0;max-width:460px;width:100%">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0;text-align:left">Account</h2><button class="btn ghost" id="acctX" style="padding:6px 12px">✕</button></div>
+    <p class="muted" id="acctWho" style="margin-top:6px"></p>
+    <h3 style="margin-top:20px;font-size:17px">Sign out everywhere</h3>
+    <p class="muted" style="font-size:14px">Signs you out on every phone and computer, including this one.</p>
+    <button class="btn ghost" id="outAll" style="margin-top:8px">Sign out everywhere</button>
+    <h3 style="margin-top:22px;font-size:17px;color:#fca5a5">Delete my account</h3>
+    <p class="muted" style="font-size:14px">Deletes your account and your orders for good. Download any finished website first. Type your email to confirm.</p>
+    <input id="delEmail" type="email" placeholder="you@example.com" style="margin-top:8px">
+    <button class="btn" id="delBtn" style="margin-top:8px;background:#b91c1c">Delete my account</button>
+    <p class="err" id="acctErr"></p>
+  </div></div>
   <!-- forgot password -->
   <div class="box" id="reset" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left">Reset your password</h2>
@@ -56,7 +69,7 @@
       <button data-v="dash" class="on"><span class="di"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg></span><b>Dashboard</b><small>Status & progress</small></button>
       <button data-v="prev"><span class="di"><svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18z"/></svg></span><b>Preview</b><small>See your website live</small></button>
       <button data-v="req"><span class="di"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></span><b>Request</b><small>Ask for a website</small></button>
-      <div class="dme" id="dme"></div>
+      <button class="dme" id="dme" title="Account settings"></button>
     </aside>
     <section class="dmain">
       <div id="v-dash">
@@ -184,6 +197,15 @@ function drawRequest() {
   if (busy) $("reqBlocked").innerHTML = `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">🛠️</div><h2 style="margin:6px 0">You already have a website in the works</h2><p class="muted">${esc(busy.kind || busy.id)} is <b>${esc(busy.status)}</b>. You can request another website when it's finished.</p><button class="btn" style="margin-top:14px" onclick="view('dash')">Go to my dashboard</button></div>`;
 }
 async function removeDone(id) { if (!confirm("Remove this finished website from your dashboard? Download your ZIP first: you won't be able to get it here after.")) return; await post("/api/order/remove", { id }); loadOrders(); }
+$("acctX").onclick = () => ($("acctModal").style.display = "none");
+$("acctModal").onclick = (e) => { if (e.target.id === "acctModal") $("acctModal").style.display = "none"; };
+$("outAll").onclick = async () => { await post("/api/account/logout-all"); location.href = "/account.html"; };
+$("delBtn").onclick = async () => {
+  if (!confirm("Delete your account and orders for good? This can't be undone.")) return;
+  const r = await post("/api/account/delete", { email: $("delEmail").value });
+  if (!r.ok) { $("acctErr").textContent = r.error || "Something went wrong."; return; }
+  location.href = "/";
+};
 async function removeOrder(id) { if (!confirm("Remove this declined request?")) return; await post("/api/order/remove", { id }); loadOrders(); }
 async function paid(id) { const r = await post("/api/paid", { id }); if (!r.ok) alert(r.error); loadOrders(); }
 async function loadOrders() {
@@ -210,6 +232,7 @@ async function start() {
     if (cq) { $("email").value = cq; $("codeEmail").textContent = cq; show("code"); $("codeIn").focus(); }
     return; }
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
+  $("dme").onclick = () => { $("acctWho").textContent = "Signed in as " + user.email; $("acctErr").textContent = ""; $("acctModal").style.display = "flex"; };
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
   $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
