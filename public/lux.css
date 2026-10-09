@@ -107,3 +107,11 @@ details.msgs{max-width:none;margin:16px 0 0}
 }
 .dmain{min-width:0}
 @media (max-width:640px){.dmain{padding-right:4px}.tile b{font-size:16px!important}.tile:first-child b,.tile:last-child b{font-size:20px!important}.order{padding:16px}.order h3{font-size:19px}}
+@media (max-width:640px){
+  #app .dside{background:#0e0b20!important;box-shadow:0 20px 50px -10px rgba(0,0,0,.9)!important;display:flex!important;gap:2px}
+  #app .dside button{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1 1 0;min-width:0}
+  #app .dside button small{display:none}
+  #app .dside .dme{flex:0 0 46px!important;background:none;border:0}
+  #app .dside .dme div{display:none}
+}
+@media (max-width:640px){#app .dside{z-index:200!important}#app .dmain{position:relative;z-index:1;isolation:isolate}}

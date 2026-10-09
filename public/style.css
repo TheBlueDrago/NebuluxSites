@@ -178,3 +178,17 @@ main:has(.dash){max-width:1320px;padding-left:24px}
   label.row input[type=checkbox]{flex:none;margin-top:3px;width:18px!important;height:18px}
 }
 @media (max-width:640px){#auth,#code,#reset{margin:3vh 14px 0!important;width:auto!important;padding:24px 20px}}
+/* phones: dashboard menu becomes an app-style bottom tab bar */
+@media (max-width:640px){
+  .dash{grid-template-columns:1fr!important;gap:0!important}
+  main:has(.dash){padding:0 14px 110px!important}
+  .dside{position:fixed!important;top:auto!important;left:10px;right:10px;bottom:10px;min-height:0!important;z-index:50;flex-direction:row!important;justify-content:space-around;align-items:center;padding:6px!important;border-radius:22px!important;border:1px solid rgba(209,108,245,.3)!important;background:rgba(14,11,32,.9)!important;backdrop-filter:blur(18px)}
+  .dside .dlabel{display:none}
+  .dside button{flex:1;padding:6px 2px!important;border-radius:16px}
+  .dside button.on::before{display:none}
+  .dside button .di{width:36px;height:36px;border-radius:12px}
+  .dside button b{font-size:10.5px!important}
+  .dme{margin:0!important;flex:0 0 auto!important;padding:4px!important}
+  .dme .av{width:34px;height:34px}
+  #helpBtn{bottom:88px!important}
+}
