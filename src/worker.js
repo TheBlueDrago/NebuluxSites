@@ -268,8 +268,10 @@ async function api(req, env, path) {
     if (!(await allow("verify:" + ip, 30, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
     const c = await db.prepare("SELECT * FROM codes WHERE email = ?").bind(email).first();
     if (!c || c.expires < Date.now() || c.tries >= 5) return json({ error: "That code has expired. Send a new one." }, 400);
+    // Each guess uses up one of the 5 tries before it's checked, so guesses sent all at once can't get extra tries.
+    const tried = await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ? AND tries < 5").bind(email).run();
+    if (!tried.meta || !tried.meta.changes) return json({ error: "That code has expired. Send a new one." }, 400);
     if (!(await sameText(await sha(String(body.code || "").trim()), c.code_hash))) {
-      await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ?").bind(email).run();
       return json({ error: "That code isn't right. Check the email and try again." }, 400);
     }
     await db.prepare("DELETE FROM codes WHERE email = ?").bind(email).run();
@@ -300,8 +302,10 @@ async function api(req, env, path) {
     if (badPw(pw)) return json({ error: badPw(pw) }, 400);
     const c = await db.prepare("SELECT * FROM codes WHERE email = ?").bind(email).first();
     if (!c || c.expires < Date.now() || c.tries >= 5) return json({ error: "That code has expired. Send a new one." }, 400);
+    // Each guess uses up one of the 5 tries before it's checked, so guesses sent all at once can't get extra tries.
+    const tried = await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ? AND tries < 5").bind(email).run();
+    if (!tried.meta || !tried.meta.changes) return json({ error: "That code has expired. Send a new one." }, 400);
     if (!(await sameText(await sha(String(body.code || "").trim()), c.code_hash))) {
-      await db.prepare("UPDATE codes SET tries = tries + 1 WHERE email = ?").bind(email).run();
       return json({ error: "That code isn't right. Check the email and try again." }, 400);
     }
     const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
