@@ -8,7 +8,7 @@
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
-  <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password"><button class="btn" style="margin-top:12px" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password" autocomplete="current-password" aria-label="Admin key" autofocus><button class="btn" style="margin-top:12px;width:100%" id="go">Open orders</button><p class="err" id="err"></p></div>
   <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
@@ -107,6 +107,7 @@ async function waitlist() {
 }
 $("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };
+$("key").onkeydown = (e) => { if (e.key === "Enter") $("go").click(); };
 if (KEY) load();
 </script>
 <script src="/lux.js" defer></script>
