@@ -141,3 +141,6 @@ details.msgs{max-width:none;margin:16px 0 0}
   .dhero{padding:22px}
 }
 @media (max-width:640px){body:has(#app .dside) #helpBtn{left:auto!important;right:14px!important;opacity:.92}}
+.modal .box{box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto}
+.modal>.box{width:100%!important;max-width:min(460px,100%)!important;min-width:0!important;margin:0!important}
+@media (max-width:640px){#app .dside{overflow:hidden;gap:0!important;padding:6px 4px!important}#app .dside button{padding:6px 0!important}#app .dside button b{font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}#app .dside .dme{flex:0 0 40px!important;padding:0!important}}

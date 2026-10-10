@@ -31,6 +31,7 @@
   <div id="acctModal" class="modal" style="display:none"><div class="box" style="margin:0;max-width:460px;width:100%">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0;text-align:left">Account</h2><button class="btn ghost" id="acctX" style="padding:6px 12px">✕</button></div>
     <p class="muted" id="acctWho" style="margin-top:6px"></p>
+    <button class="btn" id="acctOut" style="width:100%;margin-top:6px">Log out</button>
     <h3 style="margin-top:20px;font-size:17px">Sign out everywhere</h3>
     <p class="muted" style="font-size:14px">Signs you out on every phone and computer, including this one.</p>
     <button class="btn ghost" id="outAll" style="margin-top:8px">Sign out everywhere</button>
@@ -307,9 +308,11 @@ async function start() {
     if (cq) { $("email").value = cq; $("codeEmail").textContent = cq; show("code"); $("codeIn").focus(); }
     return; }
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
+  document.body.appendChild($("acctModal")); // fixed popups size to the screen, not to the page layout
   $("dme").onclick = () => { $("acctWho").textContent = "Signed in as " + user.email; $("acctErr").textContent = ""; $("acctModal").style.display = "flex"; };
   { const h = new Date().getHours(); $("dhi").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; $("dhName").textContent = "Hi, " + String(user.name || "there").split(" ")[0] + " 👋"; }
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
+  $("acctOut").onclick = async () => { await post("/api/logout"); location.reload(); };
   $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
   // Signed in: the logo opens the dashboard, not the home page.
