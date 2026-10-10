@@ -255,3 +255,4 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
   .tryit{grid-template-columns:1fr!important}
 }
 .hx .rv{opacity:1;transform:none;animation:hxin .55s cubic-bezier(.2,.7,.2,1) both}.hx .rv.d1{animation-delay:.05s}.hx .rv.d2{animation-delay:.1s}.hx .rv.d3{animation-delay:.15s}@keyframes hxin{from{opacity:0;transform:translateY(16px)}}@media (prefers-reduced-motion:reduce){.hx .rv{animation:none}}
+@media (max-width:900px){body.home.menu-open nav{background:#100c26!important;backdrop-filter:none!important;box-shadow:0 30px 80px -10px rgba(0,0,0,.9)}body.home.menu-open::after{content:"";position:fixed;inset:0;background:rgba(3,2,12,.6);z-index:30;pointer-events:none}body.home.menu-open header{z-index:60}}
