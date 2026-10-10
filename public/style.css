@@ -205,3 +205,4 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{box-shadow:0 0 0
   body:has(#helpBox.open) #helpBtn,body:has(#helpBox.open) .mobile-cta{display:none!important}
 }
 @media (max-width:640px){#helpBox.open{top:72px!important;bottom:10px!important;max-height:none!important}}
+[id]{scroll-margin-top:84px}
