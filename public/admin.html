@@ -44,10 +44,10 @@ async function load() {
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>${o.wish ? `<p style="white-space:pre-wrap"><b>Anything else:</b> ${esc(o.wish)}</p>` : ""}${o.addons ? `<p><b>Add-ons:</b> ${esc(o.addons.split(",").join(", "))}</p>` : ""}
       ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}
-      ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}
+      ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}}
       <p class="muted" style="font-size:13px">Paid so far: $${(o.paid_total || 0).toFixed(2)} of $${o.price || 0}</p>
       <div class="row" style="margin-top:10px">
-        <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+        <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.filter((s) => !(s === "cancelled" && (o.paid_total || 0) > 0)).map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
         <label style="margin:0 0 0 8px">Progress</label><input data-g="${esc(o.id)}" type="range" min="0" max="100" step="5" value="${o.progress || 0}" style="flex:1;min-width:140px;padding:0" oninput="this.nextElementSibling.textContent=this.value+'%'"><b>${o.progress || 0}%</b>
       </div>
       <label style="margin:12px 0 4px">Their live website address (shows in their Monitor tab)</label>

@@ -665,6 +665,8 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     }
     if (path === "/api/admin/order" && req.method === "POST") {
       const status = STATUSES.includes(body.status) ? body.status : null;
+      // Once a customer has paid anything, the order can't be cancelled.
+      if (status === "cancelled") { const p = await db.prepare("SELECT paid_total FROM orders WHERE id = ?").bind(clip(body.id, 20)).first(); if (p && (p.paid_total || 0) > 0) return json({ error: "This customer already paid, so the order can't be cancelled." }, 400); }
       if (status === "awaiting payment" || status === "complete") {
         const cur = await db.prepare("SELECT github, zip_url FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
         const hasZip = (cur && (cur.github || cur.zip_url)) || ghRepo(body.github || "") || /^https:\/\//.test(String(body.zip_url || "").trim());
@@ -712,6 +714,7 @@ See your order: ${SITE}/account.html
 Nebulux Sites`;
         if (status === "awaiting deposit") await mail(env, old.email, "Your website request was accepted!", hi + "Good news: we accepted your website request! To continue, pay your $5 starting fee on the Billing page (it comes off your price). Then we start building." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
         if (status === "cancelled" && old.status === "in review") await mail(env, old.email, "About your website request", hi + "Thanks for your request. Sorry, we can't take this one on right now, so we declined it. You weren't charged anything. You're welcome to send a different request any time." + see);
+        if (status === "cancelled" && old.status !== "in review") await mail(env, old.email, "Your website order was cancelled", hi + "We're sorry, but we had to cancel your website order. If you paid anything, we'll refund it. Reply to this email if you have any questions." + see);
         if (status === "cancelled" && env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE id = ?").bind(clip(body.id, 20)).run().catch(() => {});
         if (status === "building") await mail(env, old.email, "We started building your website", hi + "We got your payment and started building your website. You can watch the progress and a live preview on your account page." + see);
         if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest on the Billing page to get it." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
