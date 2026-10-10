@@ -159,3 +159,7 @@ details.msgs{max-width:none;margin:16px 0 0}
 #pview.asphone .browser iframe{height:min(760px,calc(100vh - 230px))}
 @media (max-width:640px){.seg{display:none}}
 @media (max-width:640px){#promos .row input{flex:1 1 140px;width:auto!important;min-width:0}#promos .row .btn{width:100%}}
+/* Phone preview: real phone proportions (about 9 by 19.5), sized to fit the screen height */
+#pview.asphone .browser{height:min(760px,calc(100vh - 210px));min-height:520px;width:auto!important;max-width:none!important;aspect-ratio:9/19.5;margin:0 auto;display:flex;flex-direction:column;border-radius:40px;border:12px solid #1b1733;overflow:hidden;position:relative}
+#pview.asphone .browser::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:90px;height:22px;border-radius:99px;background:#1b1733;z-index:2}
+#pview.asphone .browser iframe{flex:1;height:100%!important;min-height:0!important;width:100%}
