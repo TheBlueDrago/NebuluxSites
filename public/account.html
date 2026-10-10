@@ -305,12 +305,19 @@ $("orderForm").onsubmit = async (e) => {
   const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value, addons: [...document.querySelectorAll('input[name="addon"]:checked')].map((x) => x.value), wish: $("wish").value });
   btn.disabled = false; btn.textContent = label;
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
+  try { localStorage.removeItem("ns-draft"); } catch {}
   toast(`🎉 Request ${r.id} sent! We'll email you as soon as we accept it.`);
   $("orderForm").reset(); await loadOrders(); view("dash");
 };
 function toast(msg) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.classList.add("out"), 5000); setTimeout(() => t.remove(), 5600);
+}
+// The order form keeps what they typed (on this device) until it's sent.
+const DRAFT = ["kind", "details", "deadline", "links", "wish"];
+function keepDraft() {
+  try { const d = JSON.parse(localStorage.getItem("ns-draft") || "{}"); for (const k of DRAFT) if (d[k] && $(k) && !$(k).value) $(k).value = d[k]; } catch {}
+  for (const k of DRAFT) $(k)?.addEventListener("input", () => { try { const d = {}; for (const j of DRAFT) d[j] = $(j)?.value || ""; localStorage.setItem("ns-draft", JSON.stringify(d)); } catch {} });
 }
 async function start() {
   const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
@@ -323,8 +330,8 @@ async function start() {
   $("dme").onclick = () => { $("acctWho").textContent = "Signed in as " + user.email; $("acctErr").textContent = ""; $("acctModal").style.display = "flex"; };
   { const h = new Date().getHours(); $("dhi").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; $("dhName").textContent = "Hi, " + String(user.name || "there").split(" ")[0] + " 👋"; }
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
-  $("acctOut").onclick = async () => { await post("/api/logout"); location.reload(); };
-  $("out").onclick = async (e) => { e.preventDefault(); await post("/api/logout"); location.reload(); };
+  $("acctOut").onclick = async () => { try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
+  $("out").onclick = async (e) => { e.preventDefault(); try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
   $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
   // Signed in: the logo opens the dashboard, not the home page.
   const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
@@ -343,6 +350,7 @@ async function start() {
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");
 if (gq) setTimeout(() => { $("authErr").textContent = gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
+keepDraft();
 start();
 </script>
 <script src="/help.js" defer></script>
