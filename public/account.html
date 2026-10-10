@@ -212,11 +212,12 @@ function drawRequest() {
 async function removeDone(id) { if (!confirm("Remove this finished website from your dashboard? Download your ZIP first: you won't be able to get it here after.")) return; await post("/api/order/remove", { id }); loadOrders(); }
 $("acctX").onclick = () => ($("acctModal").style.display = "none");
 $("acctModal").onclick = (e) => { if (e.target.id === "acctModal") $("acctModal").style.display = "none"; };
-$("outAll").onclick = async () => { await post("/api/account/logout-all"); location.href = "/account.html"; };
+$("outAll").onclick = async () => { try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/account/logout-all"); location.href = "/account.html"; };
 $("delBtn").onclick = async () => {
   if (!confirm("Delete your account and orders for good? This can't be undone.")) return;
   const r = await post("/api/account/delete", { email: $("delEmail").value });
   if (!r.ok) { $("acctErr").textContent = r.error || "Something went wrong."; return; }
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("ns-")) localStorage.removeItem(k); } catch {}
   location.href = "/";
 };
 function drawMsgs(id, list, info) {
