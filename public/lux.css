@@ -144,3 +144,7 @@ details.msgs{max-width:none;margin:16px 0 0}
 .modal .box{box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto}
 .modal>.box{width:100%!important;max-width:min(460px,100%)!important;min-width:0!important;margin:0!important}
 @media (max-width:640px){#app .dside{overflow:hidden;gap:0!important;padding:6px 4px!important}#app .dside button{padding:6px 0!important}#app .dside button b{font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}#app .dside .dme{flex:0 0 40px!important;padding:0!important}}
+.toast{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:400;max-width:min(460px,calc(100vw - 28px));padding:14px 18px;border-radius:16px;background:#16112e;border:1px solid rgba(74,222,128,.45);color:#fff;font-weight:600;box-shadow:0 20px 50px -10px rgba(0,0,0,.8);animation:tin .35s cubic-bezier(.2,.8,.2,1);transition:opacity .5s}
+.toast.out{opacity:0}
+@keyframes tin{from{opacity:0;transform:translate(-50%,-12px)}}
+.toast{width:min(460px,calc(100vw - 28px));box-sizing:border-box;text-align:center}

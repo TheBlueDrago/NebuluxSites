@@ -295,12 +295,18 @@ async function loadOrders() {
 }
 $("orderForm").onsubmit = async (e) => {
   e.preventDefault(); $("orderErr").textContent = ""; $("orderOk").textContent = "";
+  const btn = e.submitter || $("orderForm").querySelector("button"); if (btn.disabled) return; btn.disabled = true; const label = btn.textContent; btn.textContent = "Sending…";
   const pk = document.querySelector('input[name="pkg"]:checked');
   const r = await post("/api/order", { package: pk && pk.value, kind: $("kind").value, details: $("details").value, deadline: $("deadline").value, links: $("links").value, addons: [...document.querySelectorAll('input[name="addon"]:checked')].map((x) => x.value), wish: $("wish").value });
+  btn.disabled = false; btn.textContent = label;
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
-  $("orderOk").textContent = `Thanks! Your order ${r.id} is in. We'll email you when we accept it.`;
+  toast(`🎉 Request ${r.id} sent! We'll email you as soon as we accept it.`);
   $("orderForm").reset(); await loadOrders(); view("dash");
 };
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.classList.add("out"), 5000); setTimeout(() => t.remove(), 5600);
+}
 async function start() {
   const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
   PKG = packages;
