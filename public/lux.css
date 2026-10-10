@@ -150,3 +150,11 @@ details.msgs{max-width:none;margin:16px 0 0}
 .toast{width:min(460px,calc(100vw - 28px));box-sizing:border-box;text-align:center}
 
 .newdot{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:800;background:linear-gradient(100deg,#6b5bff,#d16cf5);color:#fff;vertical-align:middle;animation:pulse 1.8s infinite}
+
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.seg button{border:0;background:none;color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:8px 12px;border-radius:9px;cursor:pointer}
+.seg button.on{background:linear-gradient(100deg,rgba(107,91,255,.45),rgba(209,108,245,.35));color:#fff}
+#pview.asphone .browser{max-width:400px;margin:0 auto;border-radius:34px;border:10px solid #1b1733;box-shadow:0 30px 80px -30px rgba(110,70,255,.7)}
+#pview.asphone .browser .dots{display:none}
+#pview.asphone .browser iframe{height:min(760px,calc(100vh - 230px))}
+@media (max-width:640px){.seg{display:none}}

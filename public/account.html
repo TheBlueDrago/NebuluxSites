@@ -80,7 +80,7 @@
         <div id="orders" class="muted">No websites yet.</div>
       </div>
       <div id="v-prev" style="display:none">
-        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing. Scroll and click around inside it.</p></div><div class="row"><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
+        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing. Scroll and click around inside it.</p></div><div class="row"><div class="seg" id="pdev" role="group" aria-label="Preview size"><button type="button" data-d="pc" class="on">🖥 Computer</button><button type="button" data-d="phone">📱 Phone</button></div><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
         <div id="pview"></div>
       </div>
       <div id="v-mon" style="display:none">
@@ -319,6 +319,12 @@ function keepDraft() {
   try { const d = JSON.parse(localStorage.getItem("ns-draft") || "{}"); for (const k of DRAFT) if (d[k] && $(k) && !$(k).value) $(k).value = d[k]; } catch {}
   for (const k of DRAFT) $(k)?.addEventListener("input", () => { try { const d = {}; for (const j of DRAFT) d[j] = $(j)?.value || ""; localStorage.setItem("ns-draft", JSON.stringify(d)); } catch {} });
 }
+// Preview as a computer or a phone would show it.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#pdev button"); if (!b) return;
+  document.querySelectorAll("#pdev button").forEach((x) => x.classList.toggle("on", x === b));
+  $("pview").classList.toggle("asphone", b.dataset.d === "phone");
+});
 async function start() {
   const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
   PKG = packages;
@@ -344,7 +350,7 @@ async function start() {
     $("total").innerHTML = `${off ? `<span class="firstoff">🎉 New account deal: ${FIRST_OFF}% off your plan (−$${off}) · ends in ${Math.max(1, Math.round((FIRST_ENDS - Date.now()) / 3600000))} hours</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
   };
   $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
-  show("app"); await loadOrders(); setInterval(loadOrders, 60000);
+  show("app"); await loadOrders(); setInterval(() => loadOrders().catch(() => {}), 60000);
   const hv = location.hash.slice(1); view(["dash", "prev", "mon", "req"].includes(hv) ? hv : want ? "req" : "dash");
 }
 const gq = new URLSearchParams(location.search).get("google");
