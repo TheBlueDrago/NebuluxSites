@@ -327,6 +327,14 @@ document.addEventListener("click", (e) => {
   document.querySelectorAll("#pdev button").forEach((x) => x.classList.toggle("on", x === b));
   $("pview").classList.toggle("asphone", b.dataset.d === "phone");
 });
+// Show / hide buttons on password boxes.
+for (const id of ["password", "rPw"]) {
+  const i = $(id); if (!i) continue;
+  const w = document.createElement("div"); w.className = "pwrap"; i.parentNode.insertBefore(w, i); w.appendChild(i);
+  const b = document.createElement("button"); b.type = "button"; b.className = "peye"; b.textContent = "Show"; b.setAttribute("aria-label", "Show password");
+  b.onclick = () => { const on = i.type === "password"; i.type = on ? "text" : "password"; b.textContent = on ? "Hide" : "Show"; b.setAttribute("aria-label", on ? "Hide password" : "Show password"); };
+  w.appendChild(b);
+}
 async function start() {
   const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
   PKG = packages;
@@ -340,7 +348,7 @@ async function start() {
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
   $("acctOut").onclick = async () => { try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
   $("out").onclick = async (e) => { e.preventDefault(); try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
-  $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}</small></div></label>`).join("");
+  $("pk").innerHTML = Object.entries(packages).map(([id, p]) => `<label><input type="radio" name="pkg" value="${id}" ${id === (packages[want] ? want : "onetime") ? "checked" : ""}><div><b>${p.name}</b><br><span class="muted">${p.label} ${p.small}</span><br><small class="muted">${p.priority}${p.time ? " · " + p.time : ""}</small></div></label>`).join("");
   // Signed in: the logo opens the dashboard, not the home page.
   const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
   ADDONS = addons || {};
