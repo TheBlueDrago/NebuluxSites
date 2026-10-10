@@ -359,8 +359,10 @@ async function api(req, env, path) {
     const deal = await firstDeal(db, u.id);
     const off = deal.ok ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
     const total = pkg.price - off + extras.reduce((n, a) => n + ADDONS[a].price, 0);
-    await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)")
-      .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now).run();
+    // The insert itself checks there's no other website in the works, so two requests at once can't both get in.
+    const made = await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ? WHERE NOT EXISTS (SELECT 1 FROM orders WHERE user_id = ? AND status NOT IN ('complete', 'cancelled'))")
+      .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now, u.id).run();
+    if (!made.meta || !made.meta.changes) return json({ error: "You already have a website in the works. You can request another one when it's finished." }, 400);
     if (extras.length) await db.prepare("UPDATE orders SET addons = ? WHERE id = ?").bind(extras.join(","), id).run();
     const wish = clip(String(body.wish || "").trim(), 1500);
     if (wish) await db.prepare("UPDATE orders SET wish = ? WHERE id = ?").bind(wish, id).run();
