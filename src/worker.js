@@ -416,9 +416,11 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     }
     const paid = pi.amount_received / 100;
     const now = new Date().toISOString();
+    // Claim this payment first: if two requests arrive at once, only one of them gets to use it.
+    const claim = await db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now).run();
+    if (!claim.meta || !claim.meta.changes) return json({ ok: true, already: true });
     if (up) {
       await db.batch([
-        db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now),
         db.prepare("UPDATE upgrades SET status = 'paid' WHERE id = ?").bind(up.id),
       ]);
       await mail(env, env.OWNER_EMAIL, `${o.id}: update paid ($${paid.toFixed(2)})`, `${u.name} paid $${paid.toFixed(2)} for this update:\n\n${up.text}\n\nMark it done on the admin page when it's finished: ${SITE}/admin.html`);
@@ -426,7 +428,6 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     }
     if (bill.due === "msgs") {
       await db.batch([
-        db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, "msgs", now),
         db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, 0) + ? WHERE id = ?").bind(MSG_BLOCK, o.id),
       ]);
       return json({ ok: true, messages: MSG_BLOCK });
@@ -435,7 +436,6 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const left = Math.max(0, (o.price || 0) - total);
     const next = bill.due === "deposit" ? "building" : left > 0 ? "awaiting payment" : "complete";
     await db.batch([
-      db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now),
       db.prepare("UPDATE orders SET paid_total = ?, status = ?, claimed = '', updated_at = ? WHERE id = ?").bind(total, next, now, o.id),
     ]);
     if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
