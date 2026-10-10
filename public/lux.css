@@ -148,3 +148,5 @@ details.msgs{max-width:none;margin:16px 0 0}
 .toast.out{opacity:0}
 @keyframes tin{from{opacity:0;transform:translate(-50%,-12px)}}
 .toast{width:min(460px,calc(100vw - 28px));box-sizing:border-box;text-align:center}
+
+.newdot{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:800;background:linear-gradient(100deg,#6b5bff,#d16cf5);color:#fff;vertical-align:middle;animation:pulse 1.8s infinite}
