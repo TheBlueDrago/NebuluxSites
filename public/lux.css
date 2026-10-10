@@ -158,3 +158,4 @@ details.msgs{max-width:none;margin:16px 0 0}
 #pview.asphone .browser .dots{display:none}
 #pview.asphone .browser iframe{height:min(760px,calc(100vh - 230px))}
 @media (max-width:640px){.seg{display:none}}
+@media (max-width:640px){#promos .row input{flex:1 1 140px;width:auto!important;min-width:0}#promos .row .btn{width:100%}}
