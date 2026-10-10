@@ -529,8 +529,10 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       if (!text) return json({ error: "Type a message." }, 400);
       if ((o.msg_credits ?? FREE_MSGS) <= 0) return json({ error: `You've used your messages. Get ${MSG_BLOCK} more for $${MSG_PRICE}.`, needMessages: true }, 402);
       if (!(await allow("msg:" + u.id, 20, 3600))) return json({ error: "You've sent a lot of messages. Please wait a bit." }, 429);
+      // Use up one message first (only if one is left), then save it: two sends at once can't go past zero.
+      const used = await db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, ?) - 1 WHERE id = ? AND COALESCE(msg_credits, ?) > 0").bind(FREE_MSGS, id, FREE_MSGS).run();
+      if (!used.meta || !used.meta.changes) return json({ error: `You've used your messages. Get ${MSG_BLOCK} more for $${MSG_PRICE}.`, needMessages: true }, 402);
       await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'customer', ?, ?)").bind(id, text, new Date().toISOString()).run();
-      await db.prepare("UPDATE orders SET msg_credits = MAX(0, COALESCE(msg_credits, ?) - 1) WHERE id = ?").bind(FREE_MSGS, id).run();
       await mail(env, env.OWNER_EMAIL, `New message on ${id} from ${u.name}`, `${u.name} (${u.email}) wrote about ${o.kind || id}:\n\n${text}\n\nReply on the admin page: ${SITE}/admin.html`);
     }
     const r = await db.prepare("SELECT sender, text, at FROM messages WHERE order_id = ? ORDER BY id LIMIT 300").bind(id).all();
