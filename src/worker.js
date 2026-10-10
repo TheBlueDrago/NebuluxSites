@@ -459,9 +459,14 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const p = code && (await db.prepare("SELECT * FROM promos WHERE code = ?").bind(code).first());
     if (!p || !p.active || (p.max_uses && p.uses >= p.max_uses) || (p.expires && p.expires < Date.now())) return json({ error: "That code isn't valid." }, 400);
     const price = Math.max(Math.ceil(o.paid_total || 0), Math.round((o.price || 0) * (100 - p.percent) / 100));
+    // Take one use of the code first, so a limited code can't go over its limit when several people use it at once.
+    const took = await db.prepare("UPDATE promos SET uses = uses + 1 WHERE code = ? AND active = 1 AND (max_uses IS NULL OR max_uses = 0 OR uses < max_uses)").bind(code).run();
+    if (!took.meta || !took.meta.changes) return json({ error: "That code isn't valid." }, 400);
     const done = await db.prepare("UPDATE orders SET promo = ?, price_before = price, price = ?, updated_at = ? WHERE id = ? AND (promo IS NULL OR promo = '')").bind(code, price, new Date().toISOString(), o.id).run();
-    if (!done.meta || !done.meta.changes) return json({ error: "This order already has a promo code." }, 400);
-    await db.prepare("UPDATE promos SET uses = uses + 1 WHERE code = ?").bind(code).run();
+    if (!done.meta || !done.meta.changes) {
+      await db.prepare("UPDATE promos SET uses = MAX(0, uses - 1) WHERE code = ?").bind(code).run(); // give the use back
+      return json({ error: "This order already has a promo code." }, 400);
+    }
     // Nothing left to pay (like a 100% code): skip the payment step.
     if (price <= (o.paid_total || 0) && ["awaiting deposit", "awaiting payment"].includes(o.status)) await db.prepare("UPDATE orders SET status = ? WHERE id = ?").bind(o.status === "awaiting deposit" ? "building" : "complete", o.id).run();
     return json({ ok: true, percent: p.percent, price });
