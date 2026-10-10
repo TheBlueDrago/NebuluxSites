@@ -193,3 +193,9 @@ main:has(.dash){max-width:1320px;padding-left:24px}
   #helpBtn{bottom:88px!important}
 }
 @media (max-width:640px){header nav a:only-child{display:inline-block!important;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06)}}
+
+/* keyboard users can always see where they are */
+a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visible,label:has(input:focus-visible){outline:2px solid #d16cf5;outline-offset:3px;border-radius:10px}
+input:focus-visible,textarea:focus-visible,select:focus-visible{box-shadow:0 0 0 4px rgba(209,108,245,.25)}
+.skip{position:absolute;left:-9999px;top:8px;z-index:999;padding:10px 14px;border-radius:10px;background:#fff;color:#0b0820;font-weight:700}
+.skip:focus{left:12px}
