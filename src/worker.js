@@ -196,6 +196,7 @@ async function api(req, env, path) {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const o = await db.prepare("SELECT id, kind FROM orders WHERE id = ? AND user_id = ? AND status = 'complete'").bind(clip(body.id, 20), u.id).first();
     if (!o) return json({ error: "You can review a website once it's finished." }, 400);
+    if (!(await allow("review:" + u.id, 5, 3600))) return json({ error: "You've sent a few reviews already. Please wait a bit." }, 429);
     const stars = Math.max(1, Math.min(5, Math.round(+body.stars || 0)));
     const text = clip(String(body.text || "").trim(), 600);
     if (text.length < 10) return json({ error: "Write a sentence or two about your experience." }, 400);
