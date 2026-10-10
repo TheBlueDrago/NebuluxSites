@@ -160,7 +160,9 @@ async function sendCode(env, email) {
 }
 async function startSession(env, userId, remember) {
   const token = randomHex(32);
-  await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(token), userId, Date.now() + 30 * 86400000).run();
+  // The server forgets the session when the browser would (1 day, or 30 with Remember me), and clears out old ones.
+  await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(token), userId, Date.now() + (remember ? 30 : 1) * 86400000).run();
+  await env.DB.prepare("DELETE FROM sessions WHERE expires < ?").bind(Date.now()).run().catch(() => {});
   const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
   headers.append("set-cookie", setCookie("ns_session", token, remember ? 30 : 1));
   if (remember) {
