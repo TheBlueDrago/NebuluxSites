@@ -248,8 +248,8 @@ document.addEventListener("click", (e) => {
   box.querySelectorAll("button").forEach((x) => x.classList.toggle("on", +x.dataset.n <= n));
 });
 async function sendReview(e, id) {
-  e.preventDefault(); const f = e.target;
-  const r = await post("/api/review", { id, stars: f.querySelector(".stars").dataset.v, text: f.querySelector("textarea").value });
+  e.preventDefault(); const f = e.target; const b = f.querySelector("button.btn"); if (b.disabled) return; b.disabled = true;
+  const r = await post("/api/review", { id, stars: f.querySelector(".stars").dataset.v, text: f.querySelector("textarea").value }); b.disabled = false;
   if (!r.ok) return alert(r.error || "Couldn't send that.");
   f.innerHTML = '<p class="ok">Thank you for your review! 💜</p>';
 }
@@ -274,8 +274,8 @@ async function monOne(id) {
     ${(r.upgrades || []).length ? `<ul class="uplist">${r.upgrades.map((u) => `<li><div><span>${esc(u.text)}</span><small class="muted">${new Date(u.at).toLocaleDateString()}</small></div><div>${u.price ? `<b>$${u.price}</b> ` : ""}<span class="tag ${STAT[u.status][1]}">${STAT[u.status][0]}</span>${u.status === "quoted" ? ` <a class="btn" style="padding:6px 12px" href="/billing.html?id=${encodeURIComponent(id)}&buy=upd${u.id}">Pay $${u.price}</a>` : ""}</div></li>`).join("")}</ul>` : ""}`;
 }
 async function sendUpgrade(e, id) {
-  e.preventDefault(); const t = e.target.querySelector("textarea");
-  const r = await post("/api/upgrade", { id, text: t.value });
+  e.preventDefault(); const t = e.target.querySelector("textarea"); const b = e.target.querySelector("button"); if (b && b.disabled) return; if (b) b.disabled = true;
+  const r = await post("/api/upgrade", { id, text: t.value }); if (b) b.disabled = false;
   if (!r.ok) return alert(r.error || "Couldn't send that.");
   monOne(id);
 }
