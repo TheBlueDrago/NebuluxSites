@@ -25,6 +25,12 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 let KEY = sessionStorage.getItem("ns-admin") || "";
 const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers: { "x-admin-key": KEY, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
+// Filter the order cards as you type.
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "oq") return;
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll(".ocard").forEach((c) => { c.style.display = !q || c.dataset.q.includes(q) ? "" : "none"; });
+});
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
@@ -32,8 +38,8 @@ async function load() {
   const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
   const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
   const tiles = [["Money collected", "$" + money.toFixed(0)], ["Need a reply", sum((o) => o.last_sender === "customer")], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
-  $("list").innerHTML = `<div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${tiles.map(([k, v]) => `<div class="tile"><small>${k}</small><b>${v}</b></div>`).join("")}</div><h2 style="margin:0 0 12px;text-align:left">Orders (${O.length})</h2>` + (r.orders.map((o) => `
-    <div class="card" style="margin-bottom:12px">
+  $("list").innerHTML = `<div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${tiles.map(([k, v]) => `<div class="tile"><small>${k}</small><b>${v}</b></div>`).join("")}</div><h2 style="margin:0 0 12px;text-align:left">Orders (${O.length})</h2><input id="oq" type="search" placeholder="Search by name, email, order number or status…" aria-label="Search orders" style="margin-bottom:14px">` + (r.orders.map((o) => `
+    <div class="card ocard" data-q="${esc([o.id, o.name, o.email, o.kind, o.status, o.package].join(" ").toLowerCase())}" style="margin-bottom:12px">
       <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>${o.wish ? `<p style="white-space:pre-wrap"><b>Anything else:</b> ${esc(o.wish)}</p>` : ""}${o.addons ? `<p><b>Add-ons:</b> ${esc(o.addons.split(",").join(", "))}</p>` : ""}
