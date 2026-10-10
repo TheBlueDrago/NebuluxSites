@@ -690,7 +690,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       // A paid-in-full order that was waiting for its ZIP: tell the customer it's ready now.
       if (before && before.status === "complete" && !before.github && !before.zip_url && (zip || ghRepo(body.github || ""))) await mail(env, before.email, "Your website is ready to download!", `Hi ${before.name || "there"},\n\nYour ZIP file is ready. Download your website from your account page:\n${SITE}/account.html
 
-To put it online for free, go to nebuluxai.com, log in, open Website Designer, press New website, choose Upload ZIP and pick the file. Or use Cloudflare Pages or any other host. Then connect your domain.\n\nNebulux Sites`);
+To put it online for free, go to nebuluxai.com, log in, open Website Designer, press New website, choose Upload ZIP and pick the file (best for one-page websites). For websites with several pages, use Cloudflare Pages (also free) or any other host. Then connect your domain.\n\nNebulux Sites`);
       const prev = String(body.preview_url || "").trim();
       if (prev && !/^https:\/\//.test(prev)) return json({ error: "A preview link has to start with https://" }, 400);
       const old = await db.prepare("SELECT note, updates, status, email, name FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
@@ -715,7 +715,7 @@ Nebulux Sites`;
         if (status === "cancelled" && env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE id = ?").bind(clip(body.id, 20)).run().catch(() => {});
         if (status === "building") await mail(env, old.email, "We started building your website", hi + "We got your payment and started building your website. You can watch the progress and a live preview on your account page." + see);
         if (status === "awaiting payment") await mail(env, old.email, "Your website is finished!", hi + "Your website is finished! Take a look at the preview, then pay the rest on the Billing page to get it." + "\n\nPay here: " + SITE + "/billing.html?id=" + encodeURIComponent(clip(body.id, 20)) + see);
-        if (status === "complete") await mail(env, old.email, "Thank you! Your website is all yours", hi + "We got your payment. Thank you! Your website is complete.\n\nDownload your website (a ZIP file) from your account page. To put it online for free, go to nebuluxai.com, log in, open Website Designer, press New website, choose Upload ZIP and pick the file. Or use Cloudflare Pages or any other host. Then connect your domain. Reply to this email if you get stuck." + see);
+        if (status === "complete") await mail(env, old.email, "Thank you! Your website is all yours", hi + "We got your payment. Thank you! Your website is complete.\n\nDownload your website (a ZIP file) from your account page. To put it online for free, go to nebuluxai.com, log in, open Website Designer, press New website, choose Upload ZIP and pick the file (best for one-page websites). For websites with several pages, use Cloudflare Pages (also free) or any other host. Then connect your domain. Reply to this email if you get stuck." + see);
       }
       return json({ ok: true });
     }
