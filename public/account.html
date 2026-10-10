@@ -16,9 +16,9 @@
     <a class="btn ghost gbtn" href="/api/google"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continue with Google</a>
     <div class="or"><span>or use email</span></div>
     <form id="authForm">
-      <div id="nameRow" style="display:none"><label>Your name</label><input id="name" autocomplete="name"></div>
-      <label>Email</label><input id="email" type="email" autocomplete="email" required>
-      <label>Password</label><input id="password" type="password" autocomplete="current-password" required minlength="8">
+      <div id="nameRow" style="display:none"><label for="name">Your name</label><input id="name" autocomplete="name"></div>
+      <label for="email">Email</label><input id="email" type="email" autocomplete="email" required>
+      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required minlength="8">
       <label class="row" style="font-weight:500"><input id="remember" type="checkbox" style="width:auto"> Remember me on this device (skip the code for 30 days)</label>
       <button class="btn" style="margin-top:14px;width:100%" id="authBtn">Log in</button>
     </form>
@@ -46,10 +46,10 @@
     <h2 style="margin:0 0 6px;text-align:left">Reset your password</h2>
     <p class="muted" id="resetSub">Type your email and we'll send you a 6-digit code.</p>
     <form id="resetForm">
-      <label>Email</label><input id="rEmail" type="email" autocomplete="email" required>
+      <label for="rEmail">Email</label><input id="rEmail" type="email" autocomplete="email" required>
       <div id="rStep2" style="display:none">
-        <label>Code from the email</label><input id="rCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-        <label>New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="8">
+        <label for="rCode">Code from the email</label><input id="rCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <label for="rPw">New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="8">
       </div>
       <button class="btn" style="margin-top:14px;width:100%" id="rBtn">Send code</button>
     </form>
@@ -60,7 +60,7 @@
   <div class="box" id="code" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left">Check your email</h2>
     <p class="muted">We sent a 6-digit code to <b id="codeEmail"></b>. It works for 10 minutes.</p>
-    <form id="codeForm"><label>Code</label><input id="codeIn" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required><button class="btn" style="margin-top:14px;width:100%">Confirm</button></form>
+    <form id="codeForm"><label for="codeIn">Code</label><input id="codeIn" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required><button class="btn" style="margin-top:14px;width:100%">Confirm</button></form>
     <p class="err" id="codeErr"></p>
     <p class="muted" style="margin-top:10px"><a href="#" id="resend">Send a new code</a></p>
   </div>
@@ -95,11 +95,11 @@
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
         <label>Add-ons <span class="muted" style="font-weight:500">(optional)</span></label><div class="addons" id="addons"></div>
-        <label>Anything else you'd like?</label><textarea id="wish" maxlength="1500" style="min-height:80px" placeholder="Other extras, special features, questions… If it costs more, we'll tell you the price before you pay."></textarea>
+        <label for="wish">Anything else you'd like?</label><textarea id="wish" maxlength="1500" style="min-height:80px" placeholder="Other extras, special features, questions… If it costs more, we'll tell you the price before you pay."></textarea>
         <p class="total" id="total"></p>
-        <label>What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
-        <label>Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like… Describe everything here: after you order you get 5 free messages, then 10 more cost $1."></textarea>
-        <div class="row"><div style="flex:1;min-width:200px"><label>When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label>Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
+        <label for="kind">What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
+        <label for="details">Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like… Describe everything here: after you order you get 5 free messages, then 10 more cost $1."></textarea>
+        <div class="row"><div style="flex:1;min-width:200px"><label for="deadline">When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label for="links">Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
         <p class="muted" style="font-size:13px;margin-top:12px">Sending a request means you agree to our <a href="/legal.html#terms" target="_blank">Terms</a>, including that we are <a href="/legal.html#liability" target="_blank">not liable</a> for losses from your website.</p>
         <button class="btn" style="margin-top:12px">Send my request</button>
       </form>
