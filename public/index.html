@@ -93,7 +93,7 @@
 
   <div class="sh rv" id="work"><span class="eyebrow">Our work</span><h2>Real websites.<br>Built by us.</h2><p>We built these. Hover to scroll through them.</p></div>
   <section class="show">
-    <a class="shot feature rv" href="https://krivian-bakery.thebluedragonstriker.workers.dev/" target="_blank" rel="noopener"><div class="win"><img src="/ex-krivian.jpg" alt="Krivian Bakery website" loading="lazy" decoding="async"></div><div class="cap"><b>Krivian Bakery</b><span>Family bakery · order cookies online · visit the live site ↗</span></div></a>
+    <a class="shot feature rv" href="https://krivianbakery.com/" target="_blank" rel="noopener"><div class="win"><img src="/ex-krivian.jpg" alt="Krivian Bakery website" loading="lazy" decoding="async"></div><div class="cap"><b>Krivian Bakery</b><span>Family bakery · order cookies online · visit the live site ↗</span></div></a>
     <div class="shot rv"><div class="win"><img src="/ex-goldenbatch.jpg" alt="Golden Batch cookie shop website" loading="lazy" decoding="async"></div><div class="cap"><b>Golden Batch</b><span>Cookie shop · online ordering</span></div></div>
     <div class="shot rv d1"><div class="win"><img src="/ex-creator.jpg" alt="BaseWeb AI startup website" loading="lazy" decoding="async"></div><div class="cap"><b>BaseWeb AI</b><span>Startup · landing page</span></div></div>
   </section>
@@ -182,7 +182,7 @@ watch();
     const n = document.getElementById("tName").value.trim() || "Your business", w = document.getElementById("tWhat").value.trim() || "What you do, in one line", c = ST[style];
     document.getElementById("tUrl").textContent = n.toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com";
     const site = document.getElementById("tSite");
-    site.style.cssText = `--a:${c.a};--bg:${c.bg};--fg:${c.fg};--card:${c.card};font-family:${c.font}`;
+    site.style.cssText = `--ac:${c.a};--bg:${c.bg};--fg:${c.fg};--card:${c.card};font-family:${c.font}`;
     site.innerHTML = `<nav><b>${esc(n)}</b><span>Home</span><span>About</span><span>Contact</span><i>Order</i></nav>
       <header><small>Welcome to</small><h3>${esc(n)}</h3><p>${esc(w)}</p><div><i>Get started</i><u>Learn more</u></div></header>
       <section>${["Our story", "What we offer", "Find us"].map((h, k) => `<div style="animation-delay:${k * .12}s"><em></em><b>${h}</b><span></span><span></span></div>`).join("")}</section>`;

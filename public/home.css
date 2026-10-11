@@ -158,14 +158,14 @@ body.home nav a:not(.btn){font-size:15px}
 .tframe .url{margin:0 auto;padding:5px 60px;border-radius:8px;background:rgba(0,0,0,.35);color:var(--soft);font-size:13px}
 .tsite{background:var(--bg);color:var(--fg);min-height:430px;padding:0 0 26px;transition:background .4s,color .4s}
 .tsite nav{display:flex;align-items:center;gap:20px;padding:16px 26px;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent)}
-.tsite nav b{font-size:18px;margin-right:auto}.tsite nav span{opacity:.7}.tsite nav i{font-style:normal;background:var(--a);color:#fff;padding:7px 14px;border-radius:999px;font-weight:700}
+.tsite nav b{font-size:18px;margin-right:auto}.tsite nav span{opacity:.7}.tsite nav i{font-style:normal;background:var(--ac);color:#fff;padding:7px 14px;border-radius:999px;font-weight:700}
 .tsite header{text-align:center;padding:48px 26px 34px}.tsite header small{letter-spacing:.2em;text-transform:uppercase;opacity:.6;font-size:12px}
-.tsite header h3{font-size:clamp(30px,4vw,52px);line-height:1.05;margin:10px 0;color:var(--a);letter-spacing:-.02em}
+.tsite header h3{font-size:clamp(30px,4vw,52px);line-height:1.05;margin:10px 0;color:var(--ac);letter-spacing:-.02em}
 .tsite header p{opacity:.8;font-size:17px}.tsite header div{display:flex;gap:12px;justify-content:center;margin-top:20px}
-.tsite header i{font-style:normal;background:var(--a);color:#fff;padding:11px 20px;border-radius:12px;font-weight:700}.tsite header u{text-decoration:none;padding:11px 20px;border-radius:12px;border:1px solid color-mix(in srgb,var(--fg) 25%,transparent)}
+.tsite header i{font-style:normal;background:var(--ac);color:#fff;padding:11px 20px;border-radius:12px;font-weight:700}.tsite header u{text-decoration:none;padding:11px 20px;border-radius:12px;border:1px solid color-mix(in srgb,var(--fg) 25%,transparent)}
 .tsite section{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:0 26px}
 .tsite section div{background:var(--card);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
-.tsite section em{display:block;height:70px;border-radius:10px;background:linear-gradient(135deg,var(--a),color-mix(in srgb,var(--a) 40%,var(--card)))}
+.tsite section em{display:block;height:70px;border-radius:10px;background:linear-gradient(135deg,var(--ac),color-mix(in srgb,var(--ac) 40%,var(--card)))}
 .tsite section span{height:8px;border-radius:9px;background:color-mix(in srgb,var(--fg) 15%,transparent)}.tsite section span:last-child{width:60%}
 .tsite.go nav,.tsite.go header,.tsite.go section div{animation:pop .6s cubic-bezier(.2,.8,.2,1) both}
 .tsite.go header{animation-delay:.08s}
@@ -256,3 +256,7 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
 }
 .hx .rv{opacity:1;transform:none;animation:hxin .55s cubic-bezier(.2,.7,.2,1) both}.hx .rv.d1{animation-delay:.05s}.hx .rv.d2{animation-delay:.1s}.hx .rv.d3{animation-delay:.15s}@keyframes hxin{from{opacity:0;transform:translateY(16px)}}@media (prefers-reduced-motion:reduce){.hx .rv{animation:none}}
 @media (max-width:900px){body.home.menu-open nav{background:#100c26!important;backdrop-filter:none!important;box-shadow:0 30px 80px -10px rgba(0,0,0,.9)}body.home.menu-open::after{content:"";position:fixed;inset:0;background:rgba(3,2,12,.6);z-index:30;pointer-events:none}body.home.menu-open header{z-index:60}}
+
+/* the Try it sketch is its own little website: don't let the page's header/nav styles leak in */
+body.home .tryit .tsite header{position:static;display:block;background:none;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;box-shadow:none;transition:none;padding:48px 26px 34px;z-index:auto}
+body.home .tryit .tsite nav{position:static;background:none!important;backdrop-filter:none!important;box-shadow:none!important;transform:none;opacity:1;visibility:visible;inset:auto;height:auto;width:auto;flex-direction:row}
