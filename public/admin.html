@@ -6,11 +6,11 @@
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>.apg{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin:8px 0}.apg a{display:block;aspect-ratio:1;border-radius:10px;overflow:hidden}.apg img{width:100%;height:100%;object-fit:cover}.apg p{grid-column:1/-1}.aph{margin:8px 0}</style>
 <style>
-.live{display:inline-flex;align-items:center;gap:6px;font:700 12px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#4ade80;margin-left:10px;padding:5px 10px;border-radius:999px;background:rgba(74,222,128,.1);vertical-align:middle}@keyframes lv{50%{opacity:.3}}.lvd{animation:lv 1.6s infinite;font-size:10px}
+.live{font-style:normal;display:inline-flex;align-items:center;gap:6px;font:700 12px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#4ade80;margin-left:10px;padding:5px 10px;border-radius:999px;background:rgba(74,222,128,.1);vertical-align:middle}@keyframes lv{50%{opacity:.3}}.live .lvd{display:inline-block;width:7px;height:7px;min-width:0;padding:0;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:lv 1.6s infinite}
 .atabs,.achips{display:flex;gap:6px;flex-wrap:wrap}.atabs button,.achips button{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:inherit;cursor:pointer}.atabs button.on,.achips button.on{background:#fff;color:#0b0820;border-color:#fff}
 .afeed{display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;padding-right:4px}
 .aev{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
-.aev .aic{font-size:18px;width:28px;text-align:center}.aev .amain{flex:1;min-width:0}.aev .amain div{margin:2px 0}.aev time{font-size:12px;white-space:nowrap}
+.aev .aic{font-size:18px;width:28px;text-align:center;flex:none}.aev .amain{flex:1;min-width:0;overflow-wrap:anywhere}.aev time{flex:none}@media (max-width:600px){.afeed{max-height:70vh}.aev{padding:10px}.aev .aic{width:22px;font-size:16px}}.aev .amain div{margin:2px 0}.aev time{font-size:12px;white-space:nowrap}
 .aev.k-failed{border-color:rgba(248,113,113,.35)}.aev.k-paid{border-color:rgba(74,222,128,.35)}.aev.k-signup{border-color:rgba(167,139,250,.4)}
 .apeople{width:100%;border-collapse:collapse;font-size:14px}.apeople th{text-align:left;font-size:12px;opacity:.7;padding:6px 8px}.apeople td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px}
@@ -21,7 +21,7 @@
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password" autocomplete="current-password" aria-label="Admin key" autofocus><button class="btn" style="margin-top:12px;width:100%" id="go">Open orders</button><p class="err" id="err"></p></div>
   <div class="box wide" id="act" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;text-align:left">Activity <span class="live"><b class="lvd">●</b> live</span></h2><div class="atabs"><button class="on" data-av="feed">Feed</button><button data-av="people">People</button></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;text-align:left">Activity <em class="live">live</em></h2><div class="atabs"><button class="on" data-av="feed">Feed</button><button data-av="people">People</button></div></div>
     <div class="tiles" id="atiles" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:14px 0"></div>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><input id="asearch" placeholder="Search name, email, place…" style="flex:1;min-width:200px"><div class="achips" id="achips"></div></div>
     <div id="alist"></div>
