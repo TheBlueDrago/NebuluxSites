@@ -5,6 +5,10 @@
 <title>Your account · Nebulux Sites</title>
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>
+.kinds{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.kinds button{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
+.kinds button:hover{border-color:rgba(192,132,252,.6);transform:translateY(-1px)}
+.kinds button.on{background:linear-gradient(135deg,#7c3aed,#c026d3);border-color:transparent;color:#fff}
 .photodrop{border:1.5px dashed rgba(255,255,255,.18);border-radius:16px;padding:16px;background:rgba(255,255,255,.03)}
 .photodrop p{margin:0 0 10px}.photodrop p b{display:block;margin-bottom:2px}.photodrop p .muted{font-size:13px}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px}.pgrid:empty{display:none}
@@ -107,6 +111,7 @@
         <label for="wish">Anything else you'd like?</label><textarea id="wish" maxlength="1500" style="min-height:80px" placeholder="Other extras, special features, questions… If it costs more, we'll tell you the price before you pay."></textarea>
         <p class="total" id="total"></p>
         <label for="kind">What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
+        <div class="kinds" id="kinds" aria-label="Quick picks"></div>
         <label for="details">Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like… Describe everything here: after you order you get 5 free messages, then 10 more cost $1."></textarea>
         <div class="row"><div style="flex:1;min-width:200px"><label for="deadline">When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label for="links">Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
         <label for="photoPick">Photos for your website <span class="muted" style="font-weight:500">(optional)</span></label>
@@ -381,6 +386,25 @@ function toast(msg) {
   setTimeout(() => t.classList.add("out"), 5000); setTimeout(() => t.remove(), 5600);
 }
 // The order form keeps what they typed (on this device) until it's sent.
+// Quick picks: one tap fills in the kind of website and, if the description is empty, a starting outline to edit.
+const KINDS = [
+  ["🧁", "Bakery or café", "Pages: Home, Menu, About, Contact.\nOn the home page: our best items with photos, opening hours, and an Order button.\nStyle: warm and cozy.\nAbout us: "],
+  ["🍽️", "Restaurant", "Pages: Home, Menu, Book a table, Contact.\nShow our menu with prices, opening hours and a map.\nStyle: \nAbout us: "],
+  ["🛍️", "Online shop", "What we sell: \nAbout how many products: \nPages: Home, Shop, About, Contact.\nStyle: "],
+  ["📸", "Portfolio", "What I do: \nShow my best work in a gallery, a short About me, and a contact form.\nStyle: clean and simple."],
+  ["💈", "Barber or salon", "Pages: Home, Services and prices, Book an appointment, Contact.\nShow photos of our work and opening hours.\nStyle: "],
+  ["⚽", "Club or team", "Pages: Home, Schedule, Team, Join us, Contact.\nShow upcoming games or events and photos.\nColors: "],
+  ["🚀", "Startup or app", "What our product does: \nPages: Home with a big headline, Features, Pricing, Sign up.\nStyle: modern."],
+  ["🛠️", "Local service", "Our service (plumbing, cleaning, tutoring...): \nPages: Home, Services, Reviews, Get a quote.\nArea we serve: "],
+];
+$("kinds").innerHTML = KINDS.map(([e, k], i) => `<button type="button" data-kind="${i}"><span>${e}</span>${k}</button>`).join("");
+$("kinds").onclick = (e) => {
+  const b = e.target.closest("[data-kind]"); if (!b) return;
+  const [, k, outline] = KINDS[+b.dataset.kind];
+  $("kind").value = k; document.querySelectorAll("#kinds button").forEach((x) => x.classList.toggle("on", x === b));
+  if (!$("details").value.trim()) { $("details").value = outline; $("details").focus(); $("details").setSelectionRange(outline.length, outline.length); }
+  $("kind").dispatchEvent(new Event("input", { bubbles: true })); $("details").dispatchEvent(new Event("input", { bubbles: true }));
+};
 const DRAFT = ["kind", "details", "deadline", "links", "wish"];
 function keepDraft() {
   try { const d = JSON.parse(localStorage.getItem("ns-draft") || "{}"); for (const k of DRAFT) if (d[k] && $(k) && !$(k).value) $(k).value = d[k]; } catch {}
