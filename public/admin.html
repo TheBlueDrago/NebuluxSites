@@ -183,7 +183,8 @@ const lform = (l = {}) => `<div class="row" style="gap:8px;flex-wrap:wrap;margin
   <input data-f="price" type="number" min="0" placeholder="Price $" value="${l.price || ""}" style="width:110px">
   <input data-f="sort" type="number" placeholder="Order" value="${l.sort || 0}" style="width:80px" title="Lower shows first">
 </div>
-<textarea data-f="blurb" placeholder="One or two sentences about it" style="margin-top:8px;min-height:60px">${esc(l.blurb || "")}</textarea>
+<textarea data-f="blurb" placeholder="What the website is, in one or two sentences" style="margin-top:8px;min-height:60px">${esc(l.blurb || "")}</textarea>
+<textarea data-f="includes" placeholder="What's included (one per line), e.g.&#10;Home page&#10;Menu with prices&#10;Contact page" style="margin-top:8px;min-height:110px">${esc(l.includes || "")}</textarea>
 <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
   <input data-f="image" placeholder="Picture: /ex-goldenbatch.jpg or https://…" value="${esc(l.image || "")}" style="flex:1;min-width:200px">
   <input data-f="demo" placeholder="Live demo link (optional) https://…" value="${esc(l.demo || "")}" style="flex:1;min-width:200px">
@@ -201,7 +202,7 @@ document.addEventListener("click", async (e) => {
   const f = e.target.closest(".lform"), v = (k) => f.querySelector(`[data-f="${k}"]`);
   if (dl) { if (confirm("Delete this ready-made website?")) listings({ action: "delete", id: f.dataset.lid }); return; }
   const title = v("title").value.trim(); if (!title) { alert("Give it a name."); return; }
-  await listings({ action: "save", id: f.dataset.lid || title, title, price: v("price").value, sort: v("sort").value, blurb: v("blurb").value, image: v("image").value, demo: v("demo").value, active: v("active").checked });
+  await listings({ action: "save", id: f.dataset.lid || title, title, price: v("price").value, sort: v("sort").value, blurb: v("blurb").value, includes: v("includes").value, image: v("image").value, demo: v("demo").value, active: v("active").checked });
 });
 $("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };

@@ -157,9 +157,12 @@ const userById = (env, id) => env.DB.prepare("SELECT id, email, name FROM users 
 // Buying starts with a request (an order with package "readymade"); the owner accepts it, then they pay as usual.
 const READY_EXTRAS = { rename: { name: "Change the name", price: 5 }, protect: { name: "Extra protection", price: 25 } };
 const READY_SEED = [
-  ["golden-batch", "Golden Batch", "A warm cookie shop website with a menu, online ordering, reviews and an FAQ.", "/ex-goldenbatch.jpg", ""],
-  ["baseweb-ai", "BaseWeb AI", "A modern startup landing page with features, live demo screens and pricing.", "/ex-creator.jpg", ""],
-  ["krivian-bakery", "Krivian Bakery", "A bakery website with a flavor menu, packs, a cart, Google sign-in and pickup checkout.", "/ex-krivian.jpg", "https://krivianbakery.com/"],
+  ["golden-batch", "Golden Batch", "A warm, cozy cookie shop website made to sell. Big photos, a clear menu and order buttons everywhere, so visitors turn into customers.", "/ex-goldenbatch.jpg", "",
+    "Home page with a big headline and Order button\nCookie menu with photos, flavors and prices\nBuild-a-dozen box page\nThe Craft (your story) page\nReviews section\nFAQ\nCatering page\nCart and checkout pages (you connect your own payments)"],
+  ["baseweb-ai", "BaseWeb AI", "A sleek, dark startup landing page for an app or software product. Made to explain what your product does and get people to sign up.", "/ex-creator.jpg", "",
+    "Landing page with a big headline and a try-it box\nFeatures section\nLive demo screens of the product\nTemplates page\nPricing page\nContact page\nSign-up buttons throughout"],
+  ["krivian-bakery", "Krivian Bakery", "A complete bakery store: customers pick a flavor and a pack, sign in with Google and check out for pickup. Live and working at krivianbakery.com.", "/ex-krivian.jpg", "https://krivianbakery.com/",
+    "Photo slideshow you can swipe\nFlavor menu with photos (8 flavors)\nPacks of 4, 8 and 12 with prices\nCart and pickup checkout\nGoogle sign-in and account menu\nHow it works and FAQ sections\nPrivacy, Terms and Allergens pages\nFriendly 404 page"],
 ];
 
 let ready = false;
@@ -184,8 +187,12 @@ async function ensure(db) {
   await db.prepare("ALTER TABLE users ADD COLUMN signup_net TEXT DEFAULT ''").run().catch(() => {});
   for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "live_url TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   // The first ready-made websites. Only added once: after that the owner edits them on the admin page.
-  await db.batch(READY_SEED.map(([id, title, blurb, image, demo], i) =>
-    db.prepare("INSERT OR IGNORE INTO listings (id, title, blurb, price, image, demo, active, sort, created_at) VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?)").bind(id, title, blurb, image, demo, i, new Date().toISOString()))).catch(() => {});
+  await db.prepare("ALTER TABLE listings ADD COLUMN includes TEXT DEFAULT ''").run().catch(() => {});
+  await db.batch(READY_SEED.map(([id, title, blurb, image, demo, inc], i) =>
+    db.prepare("INSERT OR IGNORE INTO listings (id, title, blurb, price, image, demo, active, sort, created_at, includes) VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?, ?)").bind(id, title, blurb, image, demo, i, new Date().toISOString(), inc))).catch(() => {});
+  // the first version had short descriptions and no list: fill those in (never over the owner's own edits)
+  await db.batch(READY_SEED.map(([id, , blurb, , , inc]) =>
+    db.prepare("UPDATE listings SET blurb = CASE WHEN length(blurb) < 100 THEN ? ELSE blurb END, includes = ? WHERE id = ? AND (includes IS NULL OR includes = '')").bind(blurb, inc, id))).catch(() => {});
   ready = true;
 }
 
@@ -665,7 +672,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     return json({ ok: true, id: made.meta.last_row_id });
   }
   if (path === "/api/listings") {
-    const r = await db.prepare("SELECT id, title, blurb, price, image, demo FROM listings WHERE active = 1 ORDER BY sort, created_at").all();
+    const r = await db.prepare("SELECT id, title, blurb, price, image, demo, includes FROM listings WHERE active = 1 ORDER BY sort, created_at").all();
     return json({ listings: r.results || [], extras: READY_EXTRAS });
   }
   if (path === "/api/ready/request" && req.method === "POST") {
@@ -722,8 +729,8 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
           if (!id || !String(body.title || "").trim()) return json({ error: "Give it a name." }, 400);
           const price = Math.max(0, Math.min(100000, Math.round(Number(body.price) || 0)));
           const okUrl = (v) => { v = clip(String(v || "").trim(), 400); return !v || v.startsWith("/") || /^https:\/\//.test(v) ? v : ""; };
-          await db.prepare("INSERT INTO listings (id, title, blurb, price, image, demo, active, sort, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, blurb = excluded.blurb, price = excluded.price, image = excluded.image, demo = excluded.demo, active = excluded.active, sort = excluded.sort")
-            .bind(id, clip(body.title, 80).trim(), clip(body.blurb, 400).trim(), price, okUrl(body.image), okUrl(body.demo), body.active === false ? 0 : 1, Math.round(Number(body.sort) || 0), new Date().toISOString()).run();
+          await db.prepare("INSERT INTO listings (id, title, blurb, price, image, demo, active, sort, created_at, includes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, blurb = excluded.blurb, price = excluded.price, image = excluded.image, demo = excluded.demo, active = excluded.active, sort = excluded.sort, includes = excluded.includes")
+            .bind(id, clip(body.title, 80).trim(), clip(body.blurb, 600).trim(), price, okUrl(body.image), okUrl(body.demo), body.active === false ? 0 : 1, Math.round(Number(body.sort) || 0), new Date().toISOString(), clip(String(body.includes || "").split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 20).join("\n"), 2000)).run();
         }
       }
       const r = await db.prepare("SELECT * FROM listings ORDER BY sort, created_at").all();

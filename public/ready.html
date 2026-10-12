@@ -11,6 +11,9 @@
 .rcard{border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column}
 .rshot{aspect-ratio:16/10;overflow:hidden;background:#110d26;position:relative}.rshot img{width:100%;height:auto;display:block;transition:transform 4s ease}.rcard:hover .rshot img{transform:translateY(calc(-100% + 220px))}
 .rbody{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1}.rbody h3{margin:0;font-size:22px}.rbody p{margin:0;color:#b9b2df;font-size:15px;line-height:1.5}
+.rinc{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}.rinc b{display:block;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#c4b5fd;margin-bottom:6px}
+.rinc ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}.rinc li{position:relative;padding-left:22px;font-size:14.5px;color:#ddd8f7;line-height:1.4}.rinc li:before{content:"✓";position:absolute;left:0;color:#4ade80;font-weight:800}
+.every{max-width:900px;margin:0 auto 34px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px}.every span{font-size:14px;padding:8px 14px;border-radius:999px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);color:#bbf7d0}
 .rprice{font:800 28px Sora,Inter,sans-serif;color:#fff}.rprice small{font:500 14px Inter,sans-serif;color:#a9a3cf}
 .rextra{display:flex;align-items:center;gap:10px;font-size:15px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer}.rextra b{margin-left:auto;color:#d8b4fe}
 .rbody label.rextra{display:flex!important;justify-content:flex-start;text-align:left;margin:0;font-weight:600;color:#ede9fe}.rbody .rextra input{width:18px!important;height:18px;min-width:0;flex:none;margin:0;padding:0;accent-color:#a855f7}
@@ -24,6 +27,7 @@
 <main>
   <div class="rhead"><span class="eyebrow">Ready-made websites</span><h1>Already built. Ready for you.</h1><p>Websites our team already made. Pick one you like, add your business name, and it's yours, faster than starting from scratch.</p>
     <div class="steps3"><span>1. Send a request</span><span>2. We accept it</span><span>3. Pay and get your website</span></div></div>
+  <div class="every"><span>✓ The whole website as a ZIP</span><span>✓ Works on phones and computers</span><span>✓ Step-by-step help to put it online</span><span>✓ Yours to keep</span></div>
   <div class="rgrid" id="rgrid"><p class="muted" style="text-align:center;grid-column:1/-1">Loading…</p></div>
   <p class="rnote"><b>Good to know:</b> if a website takes payments (like a cookie shop), you connect your own payment account to it, such as Stripe, even on a ready-made website. You also set up your own domain and hosting. We show you how, step by step.</p>
   <p class="rnote">Want changes that aren't listed? Write them in the box and we'll send you the price before you pay. Requesting is free. We'll email you when we accept, and then you can pay on your Billing page. You get the whole website as a ZIP, plus help putting it online.</p>
@@ -40,6 +44,7 @@ async function load() {
   $("rgrid").innerHTML = L.length ? L.map((l) => `<div class="rcard" data-id="${esc(l.id)}" data-price="${l.price}">
     <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy">` : ""}</div>
     <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
+      ${l.includes ? `<div class="rinc"><b>What's included</b><ul>${l.includes.split("\n").filter(Boolean).map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>` : ""}
       <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : '<small>Price coming soon</small>'}</div>
       ${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}">${esc(x.name)}<b>+$${x.price}</b></label>`).join("")}
       <input type="text" class="rname" maxlength="60" placeholder="Your business name" hidden>
