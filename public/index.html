@@ -22,7 +22,7 @@
 <header>
   <a class="logo display" href="/"><img src="/logo.png" alt="">Nebulux Sites</a>
   <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
-  <nav id="nav"><a href="#try">Try it</a><a href="#work">Work</a><a href="#how">Process</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/account.html">Log in</a><a class="btn lux" href="/account.html#req">Start a website</a></nav>
+  <nav id="nav"><a href="#try">Try it</a><a href="#work">Work</a><a href="#how">Process</a><a href="#pricing">Pricing</a><a href="/ready.html">Ready-made</a><a href="#faq">FAQ</a><a href="/account.html">Log in</a><a class="btn lux" href="/account.html#req">Start a website</a></nav>
 </header>
 <main>
   <section class="hx">
@@ -99,6 +99,10 @@
   </section>
 
   <div id="reviewsWrap" style="display:none"><div class="sh rv"><span class="eyebrow">Reviews</span><h2>What our customers say.</h2><p>Real reviews from people we built websites for.</p></div><section class="revgrid" id="revgrid"></section></div>
+
+  <div class="sh rv" id="ready"><span class="eyebrow">Ready-made</span><h2>Already built.<br>Ready for you.</h2><p>Don't want to wait? Pick a website we already made, add your business name, and it's yours.</p></div>
+  <section class="readyrow" id="readyRow"></section>
+  <p style="text-align:center;margin:18px 0 0"><a class="btn lux" href="/ready.html">See all ready-made websites →</a></p>
 
   <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p><p class="firstbadge">🎉 New accounts: <b>30% off</b> any plan when you order in your first 2 days</p></div>
   <p class="swipehint">Swipe to see every plan →</p><section class="plans" id="plans"></section>
@@ -230,5 +234,13 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
 })();
 </script>
 <script src="/help.js" defer></script>
+<script>
+// The ready-made websites (/api/listings), up to 3 on the homepage.
+fetch("/api/listings").then((r) => r.json()).then(({ listings }) => {
+  const box = document.getElementById("readyRow"); if (!box) return;
+  const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  box.innerHTML = (listings || []).slice(0, 3).map((l) => `<a class="rdy" href="/ready.html"><div class="rdy-shot">${l.image ? `<img src="${esc(l.image)}" alt="" loading="lazy">` : ""}</div><div class="rdy-cap"><b>${esc(l.title)}</b><span>${l.price > 0 ? "$" + l.price : "Coming soon"}</span></div></a>`).join("");
+}).catch(() => {});
+</script>
 </body>
 </html>

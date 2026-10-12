@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#05040f">
+<title>Ready-made websites · Nebulux Sites</title>
+<meta name="description" content="Websites we already built, ready for your business. Pick one, add your name, and it's yours.">
+<link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Sora:wght@700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
+<style>
+.rhead{text-align:center;max-width:720px;margin:40px auto 30px}.rhead h1{font-size:clamp(34px,6vw,58px);margin:10px 0;line-height:1.05}.rhead p{color:#b9b2df;font-size:18px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#c084fc}
+.steps3{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0 0}.steps3 span{font-size:14px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#d9d3ff}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px;max-width:1150px;margin:0 auto 60px}
+.rcard{border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column}
+.rshot{aspect-ratio:16/10;overflow:hidden;background:#110d26;position:relative}.rshot img{width:100%;height:auto;display:block;transition:transform 4s ease}.rcard:hover .rshot img{transform:translateY(calc(-100% + 220px))}
+.rbody{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1}.rbody h3{margin:0;font-size:22px}.rbody p{margin:0;color:#b9b2df;font-size:15px;line-height:1.5}
+.rprice{font:800 28px Sora,Inter,sans-serif;color:#fff}.rprice small{font:500 14px Inter,sans-serif;color:#a9a3cf}
+.rextra{display:flex;align-items:center;gap:10px;font-size:15px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer}.rextra b{margin-left:auto;color:#d8b4fe}
+.rbody label.rextra{display:flex!important;justify-content:flex-start;text-align:left;margin:0;font-weight:600;color:#ede9fe}.rbody .rextra input{width:18px!important;height:18px;min-width:0;flex:none;margin:0;padding:0;accent-color:#a855f7}
+.rbody input[type=text],.rbody textarea{width:100%}.rbody textarea{min-height:64px;resize:vertical}
+.rbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:6px}.rbtns .btn{flex:1;text-align:center;justify-content:center}
+.rmsg{font-size:14px;margin:0}.rmsg.err{color:#fca5a5}.rmsg.ok{color:#86efac}
+.rnote{text-align:center;color:#a9a3cf;font-size:14px;max-width:640px;margin:-30px auto 40px}.rnote b{color:#e9d5ff}
+</style>
+</head><body>
+<header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><nav><a href="/">Home</a><a class="btn" href="/account.html">My account</a></nav></header>
+<main>
+  <div class="rhead"><span class="eyebrow">Ready-made websites</span><h1>Already built. Ready for you.</h1><p>Websites our team already made. Pick one you like, add your business name, and it's yours, faster than starting from scratch.</p>
+    <div class="steps3"><span>1. Send a request</span><span>2. We accept it</span><span>3. Pay and get your website</span></div></div>
+  <div class="rgrid" id="rgrid"><p class="muted" style="text-align:center;grid-column:1/-1">Loading…</p></div>
+  <p class="rnote"><b>Good to know:</b> if a website takes payments (like a cookie shop), you connect your own payment account to it, such as Stripe, even on a ready-made website. You also set up your own domain and hosting. We show you how, step by step.</p>
+  <p class="rnote">Want changes that aren't listed? Write them in the box and we'll send you the price before you pay. Requesting is free. We'll email you when we accept, and then you can pay on your Billing page. You get the whole website as a ZIP, plus help putting it online.</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+let EXTRAS = {};
+function total(card, price) { let t = price; card.querySelectorAll("[data-x]:checked").forEach((c) => (t += EXTRAS[c.dataset.x].price)); return t; }
+async function load() {
+  const r = await fetch("/api/listings").then((x) => x.json()).catch(() => ({}));
+  EXTRAS = r.extras || {};
+  const L = r.listings || [];
+  $("rgrid").innerHTML = L.length ? L.map((l) => `<div class="rcard" data-id="${esc(l.id)}" data-price="${l.price}">
+    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy">` : ""}</div>
+    <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
+      <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : '<small>Price coming soon</small>'}</div>
+      ${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}">${esc(x.name)}<b>+$${x.price}</b></label>`).join("")}
+      <input type="text" class="rname" maxlength="60" placeholder="Your business name" hidden>
+      <textarea class="rmore" maxlength="1000" rows="2" placeholder="Anything else you want changed? (colors, pages, photos…) We'll tell you the price before you pay."></textarea>
+      <div class="rbtns">${l.demo ? `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">See it live ↗</a>` : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
+      <p class="rmsg"></p></div></div>`).join("") : '<p class="muted" style="text-align:center;grid-column:1/-1">No ready-made websites right now. Check back soon!</p>';
+}
+document.addEventListener("change", (e) => {
+  const card = e.target.closest(".rcard"); if (!card || !e.target.dataset.x) return;
+  const price = +card.dataset.price; card.querySelector(".rname").hidden = !card.querySelector('[data-x="rename"]:checked');
+  const b = card.querySelector(".rgo"); if (price > 0) b.textContent = "Request it · $" + total(card, price);
+});
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest(".rgo"); if (!b || b.disabled) return;
+  const card = b.closest(".rcard"), msg = card.querySelector(".rmsg"); msg.className = "rmsg"; msg.textContent = "";
+  b.disabled = true; const label = b.textContent; b.textContent = "Sending…";
+  const r = await fetch("/api/ready/request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: card.dataset.id, extras: [...card.querySelectorAll("[data-x]:checked")].map((c) => c.dataset.x), name: card.querySelector(".rname").value, note: card.querySelector(".rmore").value }) }).then(async (x) => ({ s: x.status, ...(await x.json().catch(() => ({}))) })).catch(() => ({ error: "Couldn't send. Check your internet and try again." }));
+  b.disabled = false; b.textContent = label;
+  if (r.login) { msg.className = "rmsg err"; msg.innerHTML = 'Please <a href="/account.html" style="text-decoration:underline">log in or make a free account</a> first, then come back here.'; return; }
+  if (r.error) { msg.className = "rmsg err"; msg.textContent = r.error; return; }
+  msg.className = "rmsg ok"; msg.innerHTML = `🎉 Request ${esc(r.id)} sent! We'll email you when we accept it. <a href="/account.html" style="text-decoration:underline">See it in your account</a>.`;
+  b.textContent = "Requested ✓"; b.disabled = true;
+});
+load();
+</script>
+<script src="/help.js" defer></script>
+</body></html>

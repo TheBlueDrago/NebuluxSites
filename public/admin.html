@@ -15,6 +15,7 @@
 .apeople{width:100%;border-collapse:collapse;font-size:14px}.apeople th{text-align:left;font-size:12px;opacity:.7;padding:6px 8px}.apeople td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px}
 </style>
+<style>.readyhint{margin:6px 0 8px;padding:10px 12px;border-radius:12px;background:rgba(192,132,252,.12);border:1px solid rgba(192,132,252,.3);font-size:14px}</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
@@ -27,6 +28,12 @@
     <div id="alist"></div>
   </div>
   <div class="box wide" id="list" style="display:none"></div>
+  <div class="box wide" id="lst" style="display:none">
+    <h2 style="margin:0 0 6px;text-align:left">Ready-made websites</h2>
+    <p class="muted">Websites for sale on <a href="/ready.html" target="_blank" style="text-decoration:underline">/ready.html</a>. Customers send a request (it shows up in Orders), you accept it, then they pay. Price $0 = "Coming soon". Extras: change the name +$5, extra protection +$25.</p>
+    <div id="llist"></div>
+    <details style="margin-top:12px"><summary style="font-weight:700;cursor:pointer">+ Add a website</summary><div class="lform" data-lid=""></div></details>
+  </div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
@@ -64,7 +71,7 @@ document.addEventListener("input", (e) => {
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades(); activity();
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades(); activity(); listings();
   const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
   const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
   const tiles = [["Money collected", "$" + money.toFixed(0)], ["Need a reply", sum((o) => o.last_sender === "customer")], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
@@ -74,7 +81,7 @@ async function load() {
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>${o.wish ? `<p style="white-space:pre-wrap"><b>Anything else:</b> ${esc(o.wish)}</p>` : ""}${o.addons ? `<p><b>Add-ons:</b> ${esc(o.addons.split(",").join(", "))}</p>` : ""}
       ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}${o.photos ? `<details class="aph" ontoggle="if(this.open)adminPhotos('${esc(o.id)}', this)"><summary><b>📷 ${o.photos} photo${o.photos > 1 ? "s" : ""} for the website</b></summary><div class="apg"><p class="muted">Loading…</p></div></details>` : ""}
-      ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}
+      ${o.package === "readymade" && o.status === "in review" ? `<p class="readyhint">🏷️ Ready-made website. If they asked for extra changes, set the new total in Price below (and Save) before you Accept. After you accept they pay the $5 starting fee, then the rest.</p>` : ""}${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}
       <p class="muted" style="font-size:13px">Paid so far: $${(o.paid_total || 0).toFixed(2)} of $${o.price || 0}</p>
       <div class="row" style="margin-top:10px">
         <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.filter((s) => !(s === "cancelled" && (o.paid_total || 0) > 0)).map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
@@ -170,6 +177,32 @@ document.addEventListener("click", (e) => {
 });
 $("asearch").oninput = drawActivity;
 setInterval(() => { if (KEY && !document.hidden && $("act").style.display !== "none") activity(); }, 30000);
+// ---- Ready-made websites (/ready.html) ----
+const lform = (l = {}) => `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+  <input data-f="title" placeholder="Name" value="${esc(l.title || "")}" style="flex:2;min-width:160px">
+  <input data-f="price" type="number" min="0" placeholder="Price $" value="${l.price || ""}" style="width:110px">
+  <input data-f="sort" type="number" placeholder="Order" value="${l.sort || 0}" style="width:80px" title="Lower shows first">
+</div>
+<textarea data-f="blurb" placeholder="One or two sentences about it" style="margin-top:8px;min-height:60px">${esc(l.blurb || "")}</textarea>
+<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+  <input data-f="image" placeholder="Picture: /ex-goldenbatch.jpg or https://…" value="${esc(l.image || "")}" style="flex:1;min-width:200px">
+  <input data-f="demo" placeholder="Live demo link (optional) https://…" value="${esc(l.demo || "")}" style="flex:1;min-width:200px">
+</div>
+<div class="row" style="gap:8px;margin-top:8px;align-items:center"><label style="display:flex;gap:6px;align-items:center"><input data-f="active" type="checkbox" ${l.active === 0 ? "" : "checked"}> Show it for sale</label>
+  <button class="btn" data-lsave>Save</button>${l.id ? '<button class="btn ghost" data-ldel>Delete</button>' : ""}<span class="ok" data-lok></span></div>`;
+async function listings(body) {
+  const r = await call("/api/admin/listings", body); if (!r.ok) return;
+  $("lst").style.display = "";
+  $("llist").innerHTML = r.listings.map((l) => `<details class="card" style="margin-bottom:10px"><summary style="cursor:pointer;display:flex;gap:12px;align-items:center">${l.image ? `<img src="${esc(l.image)}" alt="" style="width:64px;height:40px;object-fit:cover;object-position:top;border-radius:6px">` : ""}<b>${esc(l.title)}</b><span class="muted">${l.price > 0 ? "$" + l.price : "no price yet"}${l.active ? "" : " · hidden"}</span></summary><div class="lform" data-lid="${esc(l.id)}">${lform(l)}</div></details>`).join("") || '<p class="muted">None yet.</p>';
+  document.querySelector('#lst .lform[data-lid=""]').innerHTML = lform();
+}
+document.addEventListener("click", async (e) => {
+  const sv = e.target.closest("[data-lsave]"), dl = e.target.closest("[data-ldel]"); if (!sv && !dl) return;
+  const f = e.target.closest(".lform"), v = (k) => f.querySelector(`[data-f="${k}"]`);
+  if (dl) { if (confirm("Delete this ready-made website?")) listings({ action: "delete", id: f.dataset.lid }); return; }
+  const title = v("title").value.trim(); if (!title) { alert("Give it a name."); return; }
+  await listings({ action: "save", id: f.dataset.lid || title, title, price: v("price").value, sort: v("sort").value, blurb: v("blurb").value, image: v("image").value, demo: v("demo").value, active: v("active").checked });
+});
 $("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };
 $("key").onkeydown = (e) => { if (e.key === "Enter") $("go").click(); };

@@ -263,3 +263,11 @@ body.home .tryit .tsite nav{position:static;background:none!important;backdrop-f
 
 /* phones: the showcase caption stacks (name, then what it is) */
 @media (max-width:600px){.shot .cap{flex-direction:column;align-items:flex-start;gap:2px}}
+
+/* Ready-made websites on the homepage */
+.readyrow{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1100px;margin:0 auto;padding:0 5vw}
+.rdy{display:block;text-decoration:none;color:inherit;border-radius:20px;overflow:hidden;border:1px solid var(--line2);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));transition:transform .3s,border-color .3s,box-shadow .3s}
+.rdy:hover{transform:translateY(-5px);border-color:rgba(192,132,252,.5);box-shadow:0 30px 60px -30px rgba(168,85,247,.6)}
+.rdy-shot{aspect-ratio:16/10;overflow:hidden;background:#110d26}.rdy-shot img{width:100%;display:block}
+.rdy-cap{display:flex;justify-content:space-between;align-items:center;padding:14px 18px}.rdy-cap b{font-family:"Sora",sans-serif}.rdy-cap span{color:#d8b4fe;font-weight:700}
+@media (max-width:900px){.readyrow{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding:0 5vw 6px}.rdy{flex:0 0 78%;scroll-snap-align:start}}

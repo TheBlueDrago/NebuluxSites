@@ -153,6 +153,15 @@ async function logAct(env, req, kind, u, extra = "") {
 }
 const userById = (env, id) => env.DB.prepare("SELECT id, email, name FROM users WHERE id = ?").bind(id).first();
 
+// ---- ready-made websites: sites the owner already built, for sale ----
+// Buying starts with a request (an order with package "readymade"); the owner accepts it, then they pay as usual.
+const READY_EXTRAS = { rename: { name: "Change the name", price: 5 }, protect: { name: "Extra protection", price: 25 } };
+const READY_SEED = [
+  ["golden-batch", "Golden Batch", "A warm cookie shop website with a menu, online ordering, reviews and an FAQ.", "/ex-goldenbatch.jpg", ""],
+  ["baseweb-ai", "BaseWeb AI", "A modern startup landing page with features, live demo screens and pricing.", "/ex-creator.jpg", ""],
+  ["krivian-bakery", "Krivian Bakery", "A bakery website with a flavor menu, packs, a cart, Google sign-in and pickup checkout.", "/ex-krivian.jpg", "https://krivianbakery.com/"],
+];
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -164,6 +173,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS reviews (order_id TEXT PRIMARY KEY, user_id TEXT, name TEXT, business TEXT, stars INTEGER, text TEXT, approved INTEGER DEFAULT 0, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS upgrades (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, text TEXT, status TEXT DEFAULT 'asked', price INTEGER DEFAULT 0, at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, blurb TEXT, price INTEGER DEFAULT 0, image TEXT, demo TEXT, active INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, kind TEXT, user_id TEXT, email TEXT, name TEXT, ip TEXT, place TEXT, device TEXT, extra TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, type TEXT, data BLOB, size INTEGER, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
@@ -173,6 +183,9 @@ async function ensure(db) {
   ]);
   await db.prepare("ALTER TABLE users ADD COLUMN signup_net TEXT DEFAULT ''").run().catch(() => {});
   for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "live_url TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  // The first ready-made websites. Only added once: after that the owner edits them on the admin page.
+  await db.batch(READY_SEED.map(([id, title, blurb, image, demo], i) =>
+    db.prepare("INSERT OR IGNORE INTO listings (id, title, blurb, price, image, demo, active, sort, created_at) VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?)").bind(id, title, blurb, image, demo, i, new Date().toISOString()))).catch(() => {});
   ready = true;
 }
 
@@ -651,6 +664,32 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (!made.meta || !made.meta.changes) return json({ error: `You can add up to ${PHOTO_MAX} photos. Remove one to add another.` }, 400);
     return json({ ok: true, id: made.meta.last_row_id });
   }
+  if (path === "/api/listings") {
+    const r = await db.prepare("SELECT id, title, blurb, price, image, demo FROM listings WHERE active = 1 ORDER BY sort, created_at").all();
+    return json({ listings: r.results || [], extras: READY_EXTRAS });
+  }
+  if (path === "/api/ready/request" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first.", login: true }, 401);
+    if (!(await allow("order:" + u.id, 10, 3600))) return json({ error: "Too many requests at once. Please wait a while." }, 429);
+    const l = await db.prepare("SELECT * FROM listings WHERE id = ? AND active = 1").bind(clip(body.id, 40)).first();
+    if (!l) return json({ error: "That website isn't for sale anymore." }, 404);
+    if (!(l.price > 0)) return json({ error: "This website's price isn't set yet. Please check back soon." }, 400);
+    const extras = [...new Set(Array.isArray(body.extras) ? body.extras : [])].filter((x) => READY_EXTRAS[x]);
+    const newName = clip(String(body.name || "").trim(), 60);
+    if (extras.includes("rename") && !newName) return json({ error: "Type the new name you want on the website." }, 400);
+    const total = l.price + extras.reduce((n, x) => n + READY_EXTRAS[x].price, 0);
+    const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
+    const details = `Wants to buy the ready-made website "${l.title}" ($${l.price}).` + (extras.length ? `\nExtras: ${extras.map((x) => READY_EXTRAS[x].name + " (+$" + READY_EXTRAS[x].price + ")").join(", ")}.` : "") + (extras.includes("rename") ? `\nNew name: ${newName}` : "");
+    const note = clip(String(body.note || "").trim(), 1000);
+    // Same rule as other requests: one website in the works at a time (checked by the insert itself).
+    const made = await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) SELECT ?, ?, ?, ?, 'readymade', ?, ?, ?, '', '', ?, 'in review', '', '', ?, ? WHERE NOT EXISTS (SELECT 1 FROM orders WHERE user_id = ? AND status NOT IN ('complete', 'cancelled'))")
+      .bind(id, u.id, u.email, u.name, total, clip("Ready-made: " + l.title, 80), details, l.demo || "", now, now, u.id).run();
+    if (!made.meta || !made.meta.changes) return json({ error: "You already have a website in the works. You can request another one when it's finished." }, 400);
+    if (note) await db.prepare("UPDATE orders SET wish = ? WHERE id = ?").bind(note, id).run();
+    await logAct(env, req, "request", u, `${id} · Ready-made: ${l.title} · $${total}`);
+    await mail(env, env.OWNER_EMAIL, `New request ${id}: ready-made ${l.title}`, `${u.name} (${u.email}) wants to buy the ready-made website "${l.title}" for $${total} total.\n\n${details}${note ? "\n\nThey said: " + note : ""}\n\nAccept it on the admin page: ${SITE}/admin.html (press Accept).`);
+    return json({ ok: true, id });
+  }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
@@ -675,6 +714,21 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/listings") {
+      if (req.method === "POST") {
+        const id = clip(String(body.id || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-"), 40).replace(/^-+|-+$/g, "");
+        if (body.action === "delete") await db.prepare("DELETE FROM listings WHERE id = ?").bind(id).run();
+        else if (body.action === "save") {
+          if (!id || !String(body.title || "").trim()) return json({ error: "Give it a name." }, 400);
+          const price = Math.max(0, Math.min(100000, Math.round(Number(body.price) || 0)));
+          const okUrl = (v) => { v = clip(String(v || "").trim(), 400); return !v || v.startsWith("/") || /^https:\/\//.test(v) ? v : ""; };
+          await db.prepare("INSERT INTO listings (id, title, blurb, price, image, demo, active, sort, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, blurb = excluded.blurb, price = excluded.price, image = excluded.image, demo = excluded.demo, active = excluded.active, sort = excluded.sort")
+            .bind(id, clip(body.title, 80).trim(), clip(body.blurb, 400).trim(), price, okUrl(body.image), okUrl(body.demo), body.active === false ? 0 : 1, Math.round(Number(body.sort) || 0), new Date().toISOString()).run();
+        }
+      }
+      const r = await db.prepare("SELECT * FROM listings ORDER BY sort, created_at").all();
+      return json({ listings: r.results || [] });
+    }
     if (path === "/api/admin/activity") {
       const day = new Date(Date.now() - 86400000).toISOString(), week = new Date(Date.now() - 7 * 86400000).toISOString();
       const [ev, people, st] = await db.batch([
