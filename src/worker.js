@@ -135,6 +135,24 @@ function photoBytes(type, data) {
 }
 const photoResponse = (row) => new Response(new Uint8Array(row.data), { headers: { "content-type": row.type, "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'" } });
 
+// ---- activity log for the owner's admin page: sign-ins, new accounts, requests, payments, messages ----
+// Kept for the newest 5,000 events. Place comes from Cloudflare (city, region, country); device from the browser name.
+function deviceOf(ua) {
+  ua = String(ua || "");
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /CrOS/.test(ua) ? "Chromebook" : /Linux/.test(ua) ? "Linux" : "";
+  const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
+  return [br, os].filter(Boolean).join(" on ") || "Unknown device";
+}
+async function logAct(env, req, kind, u, extra = "") {
+  try {
+    const cf = req.cf || {};
+    await env.DB.prepare("INSERT INTO activity (at, kind, user_id, email, name, ip, place, device, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(new Date().toISOString(), kind, (u && u.id) || "", (u && u.email) || "", (u && u.name) || "", req.headers.get("cf-connecting-ip") || "", [cf.city, cf.region, cf.country].filter(Boolean).join(", "), deviceOf(req.headers.get("user-agent")), clip(extra, 200)).run();
+    if (Math.random() < 0.05) await env.DB.prepare("DELETE FROM activity WHERE id <= (SELECT id FROM activity ORDER BY id DESC LIMIT 1 OFFSET 5000)").run();
+  } catch {}
+}
+const userById = (env, id) => env.DB.prepare("SELECT id, email, name FROM users WHERE id = ?").bind(id).first();
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -146,6 +164,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS reviews (order_id TEXT PRIMARY KEY, user_id TEXT, name TEXT, business TEXT, stars INTEGER, text TEXT, approved INTEGER DEFAULT 0, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS upgrades (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, text TEXT, status TEXT DEFAULT 'asked', price INTEGER DEFAULT 0, at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, kind TEXT, user_id TEXT, email TEXT, name TEXT, ip TEXT, place TEXT, device TEXT, extra TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, type TEXT, data BLOB, size INTEGER, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
@@ -172,7 +191,8 @@ async function sendCode(env, email) {
   }).catch(() => null);
   if (!r || !r.ok) throw Object.assign(new Error("We couldn't send the email. Please try again in a minute."), { status: 502 });
 }
-async function startSession(env, userId, remember) {
+async function startSession(env, userId, remember, req, how) {
+  if (req) await logAct(env, req, "login", await userById(env, userId), how);
   const token = randomHex(32);
   // The server forgets the session when the browser would (1 day, or 30 with Remember me), and clears out old ones.
   await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)").bind(await sha(token), userId, Date.now() + (remember ? 30 : 1) * 86400000).run();
@@ -216,6 +236,7 @@ async function api(req, env, path) {
     const stars = Math.max(1, Math.min(5, Math.round(+body.stars || 0)));
     const text = clip(String(body.text || "").trim(), 600);
     if (text.length < 10) return json({ error: "Write a sentence or two about your experience." }, 400);
+    await logAct(env, req, "review", u, o.id);
     await db.prepare("INSERT OR REPLACE INTO reviews (order_id, user_id, name, business, stars, text, approved, at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)").bind(o.id, u.id, clip(String(u.name || "A customer").split(" ")[0], 40), clip(o.kind || "", 60), stars, text, new Date().toISOString()).run();
     await mail(env, env.OWNER_EMAIL, `New ${stars}-star review from ${u.name}`, `${"★".repeat(stars)}\n\n${text}\n\nApprove it to show it on the homepage: ${SITE}/admin.html`);
     return json({ ok: true });
@@ -240,13 +261,13 @@ async function api(req, env, path) {
     if (!info.email || !info.email_verified) return bad;
     const email = String(info.email).toLowerCase();
     let user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
-    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, '', '', 1, ?, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString(), "").run(); }
+    if (!user) { user = { id: randomHex(12) }; await db.prepare("INSERT INTO users (id, email, name, pw_hash, pw_salt, verified, created_at, signup_net) VALUES (?, ?, ?, '', '', 1, ?, ?)").bind(user.id, email, clip(info.name || email.split("@")[0], 60), new Date().toISOString(), "").run(); await logAct(env, req, "signup", await userById(env, user.id), "with Google"); }
     else await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(user.id).run();
     if (!(await trustedFor(env, req, user.id))) {
       await sendCode(env, email);
       return new Response(null, { status: 302, headers: { location: origin + "/account.html?code=" + encodeURIComponent(email), "set-cookie": setCookie("ns_gstate", "", 0) } });
     }
-    const res = await startSession(env, user.id, true), h = new Headers(res.headers);
+    const res = await startSession(env, user.id, true, req, "Google (remembered device)"), h = new Headers(res.headers);
     h.set("location", origin + "/account.html"); h.append("set-cookie", setCookie("ns_gstate", "", 0));
     return new Response(null, { status: 302, headers: h });
   }
@@ -271,9 +292,12 @@ async function api(req, env, path) {
     if (!(await allow("login:" + ip, 30, 900)) || !(await allow("login:" + email, 10, 900))) return json({ error: "Too many tries. Please wait 15 minutes." }, 429);
     const u = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
     if (u && !u.pw_hash) return json({ error: "This account uses Google. Press Continue with Google." }, 400);
-    if (!u || String(body.password || "").length > 200 || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) return json({ error: "Wrong email or password." }, 401);
+    if (!u || String(body.password || "").length > 200 || !(await sameText(await hashPassword(String(body.password || ""), u.pw_salt), u.pw_hash))) {
+      await logAct(env, req, "failed", u || { email }, u ? "wrong password" : "no account with this email");
+      return json({ error: "Wrong email or password." }, 401);
+    }
     // a device that ticked "Remember me" skips the code
-    if (u.verified && (await trustedFor(env, req, u.id))) return startSession(env, u.id, true);
+    if (u.verified && (await trustedFor(env, req, u.id))) return startSession(env, u.id, true, req, "password (remembered device)");
     await sendCode(env, email);
     return json({ needCode: true });
   }
@@ -289,10 +313,11 @@ async function api(req, env, path) {
       return json({ error: "That code isn't right. Check the email and try again." }, 400);
     }
     await db.prepare("DELETE FROM codes WHERE email = ?").bind(email).run();
-    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    const u = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
     if (!u) return json({ error: "Please sign up again." }, 400);
     await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(u.id).run();
-    return startSession(env, u.id, !!body.remember);
+    if (!u.verified) await logAct(env, req, "signup", await userById(env, u.id), "with email");
+    return startSession(env, u.id, !!body.remember, req, u.verified ? "email code" : "new account");
   }
   if (path === "/api/resend" && req.method === "POST") {
     const email = cleanEmail(body.email);
@@ -332,7 +357,7 @@ async function api(req, env, path) {
       db.prepare("DELETE FROM trusted WHERE user_id = ?").bind(u.id),
     ]);
     await mail(env, email, "Your Nebulux Sites password was changed", "Your password was just changed, and every device was signed out. If this wasn't you, reset it again right away from the log-in page.");
-    return startSession(env, u.id, false);
+    return startSession(env, u.id, false, req, "after a password reset");
   }
   // Account: sign out on every device, or delete the account (and its orders) for good.
   if (path === "/api/account/logout-all" && req.method === "POST") {
@@ -343,6 +368,7 @@ async function api(req, env, path) {
   if (path === "/api/account/delete" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     if (cleanEmail(body.email) !== u.email) return json({ error: "Type your email exactly to confirm." }, 400);
+    await logAct(env, req, "deleted", u);
     const busy = await db.prepare("SELECT id FROM orders WHERE user_id = ? AND status NOT IN ('complete', 'cancelled', 'in review') LIMIT 1").bind(u.id).first();
     if (busy) return json({ error: `You have a website in the works (${busy.id}). Finish or cancel it before deleting your account.` }, 400);
     await db.batch([
@@ -358,6 +384,7 @@ async function api(req, env, path) {
   }
   if (path === "/api/logout" && req.method === "POST") {
     const t = cookie(req, "ns_session");
+    const who = await currentUser(env, req); if (who) await logAct(env, req, "logout", who);
     if (t) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha(t)).run();
     return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
   }
@@ -397,6 +424,7 @@ async function api(req, env, path) {
 ${details}${wish ? "\n\nAnything else they want: " + wish : ""}
 
 Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
+    await logAct(env, req, "request", u, `${id} · ${pkg.name} · $${total}`);
     return json({ ok: true, id });
   }
   // ---- billing: our own card form (card + billing address) on the Billing page ----
@@ -442,6 +470,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     // Claim this payment first: if two requests arrive at once, only one of them gets to use it.
     const claim = await db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now).run();
     if (!claim.meta || !claim.meta.changes) return json({ ok: true, already: true });
+    await logAct(env, req, "paid", u, `$${paid} · ${o.id} · ${bill.due}`);
     if (up) {
       await db.batch([
         db.prepare("UPDATE upgrades SET status = 'paid' WHERE id = ?").bind(up.id),
@@ -556,6 +585,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       const used = await db.prepare("UPDATE orders SET msg_credits = COALESCE(msg_credits, ?) - 1 WHERE id = ? AND COALESCE(msg_credits, ?) > 0").bind(FREE_MSGS, id, FREE_MSGS).run();
       if (!used.meta || !used.meta.changes) return json({ error: `You've used your messages. Get ${MSG_BLOCK} more for $${MSG_PRICE}.`, needMessages: true }, 402);
       await db.prepare("INSERT INTO messages (order_id, sender, text, at) VALUES (?, 'customer', ?, ?)").bind(id, text, new Date().toISOString()).run();
+      await logAct(env, req, "message", u, id + " · " + text.slice(0, 120));
       await mail(env, env.OWNER_EMAIL, `New message on ${id} from ${u.name}`, `${u.name} (${u.email}) wrote about ${o.kind || id}:\n\n${text}\n\nReply on the admin page: ${SITE}/admin.html`);
     }
     const r = await db.prepare("SELECT sender, text, at FROM messages WHERE order_id = ? ORDER BY id LIMIT 300").bind(id).all();
@@ -645,6 +675,15 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/activity") {
+      const day = new Date(Date.now() - 86400000).toISOString(), week = new Date(Date.now() - 7 * 86400000).toISOString();
+      const [ev, people, st] = await db.batch([
+        db.prepare("SELECT id, at, kind, user_id, email, name, place, device, extra FROM activity ORDER BY id DESC LIMIT 400"),
+        db.prepare("SELECT u.id, u.email, u.name, u.created_at, u.verified, (SELECT MAX(at) FROM activity a WHERE a.user_id = u.id) AS last_seen, (SELECT place FROM activity a WHERE a.user_id = u.id ORDER BY id DESC LIMIT 1) AS place, (SELECT device FROM activity a WHERE a.user_id = u.id ORDER BY id DESC LIMIT 1) AS device, (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orders, (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires > ?) AS signed_in FROM users u ORDER BY COALESCE(last_seen, u.created_at) DESC LIMIT 500").bind(Date.now()),
+        db.prepare("SELECT (SELECT COUNT(*) FROM users WHERE verified = 1) AS accounts, (SELECT COUNT(*) FROM users WHERE verified = 1 AND created_at > ?) AS new_week, (SELECT COUNT(DISTINCT user_id) FROM activity WHERE kind = 'login' AND at > ?) AS logins_day, (SELECT COUNT(DISTINCT user_id) FROM sessions WHERE expires > ?) AS signed_in, (SELECT COUNT(*) FROM activity WHERE kind = 'failed' AND at > ?) AS failed_day").bind(week, day, Date.now(), day),
+      ]);
+      return json({ events: ev.results || [], people: people.results || [], stats: (st.results || [])[0] || {} });
+    }
     if (path === "/api/admin/photos") {
       const r = await db.prepare("SELECT id, type, size, at FROM photos WHERE order_id = ? ORDER BY id").bind(clip(new URL(req.url).searchParams.get("order"), 20)).all();
       return json({ photos: r.results || [] });

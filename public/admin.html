@@ -5,11 +5,27 @@
 <title>Orders · Nebulux Sites admin</title>
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>.apg{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin:8px 0}.apg a{display:block;aspect-ratio:1;border-radius:10px;overflow:hidden}.apg img{width:100%;height:100%;object-fit:cover}.apg p{grid-column:1/-1}.aph{margin:8px 0}</style>
+<style>
+.live{display:inline-flex;align-items:center;gap:6px;font:700 12px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#4ade80;margin-left:10px;padding:5px 10px;border-radius:999px;background:rgba(74,222,128,.1);vertical-align:middle}@keyframes lv{50%{opacity:.3}}.lvd{animation:lv 1.6s infinite;font-size:10px}
+.atabs,.achips{display:flex;gap:6px;flex-wrap:wrap}.atabs button,.achips button{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:inherit;cursor:pointer}.atabs button.on,.achips button.on{background:#fff;color:#0b0820;border-color:#fff}
+.afeed{display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;padding-right:4px}
+.aev{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.aev .aic{font-size:18px;width:28px;text-align:center}.aev .amain{flex:1;min-width:0}.aev .amain div{margin:2px 0}.aev time{font-size:12px;white-space:nowrap}
+.aev.k-failed{border-color:rgba(248,113,113,.35)}.aev.k-paid{border-color:rgba(74,222,128,.35)}.aev.k-signup{border-color:rgba(167,139,250,.4)}
+.apeople{width:100%;border-collapse:collapse;font-size:14px}.apeople th{text-align:left;font-size:12px;opacity:.7;padding:6px 8px}.apeople td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px}
+</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
 <main>
   <div class="box" id="keyBox"><h2 style="margin:0 0 8px;text-align:left">Admin</h2><p class="muted">Enter your admin key (the ADMIN_KEY secret on the Worker).</p><input id="key" type="password" autocomplete="current-password" aria-label="Admin key" autofocus><button class="btn" style="margin-top:12px;width:100%" id="go">Open orders</button><p class="err" id="err"></p></div>
+  <div class="box wide" id="act" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;text-align:left">Activity <span class="live"><b class="lvd">●</b> live</span></h2><div class="atabs"><button class="on" data-av="feed">Feed</button><button data-av="people">People</button></div></div>
+    <div class="tiles" id="atiles" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:14px 0"></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><input id="asearch" placeholder="Search name, email, place…" style="flex:1;min-width:200px"><div class="achips" id="achips"></div></div>
+    <div id="alist"></div>
+  </div>
   <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
@@ -48,7 +64,7 @@ document.addEventListener("input", (e) => {
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades();
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades(); activity();
   const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
   const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
   const tiles = [["Money collected", "$" + money.toFixed(0)], ["Need a reply", sum((o) => o.last_sender === "customer")], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
@@ -58,7 +74,7 @@ async function load() {
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>${o.wish ? `<p style="white-space:pre-wrap"><b>Anything else:</b> ${esc(o.wish)}</p>` : ""}${o.addons ? `<p><b>Add-ons:</b> ${esc(o.addons.split(",").join(", "))}</p>` : ""}
       ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}${o.photos ? `<details class="aph" ontoggle="if(this.open)adminPhotos('${esc(o.id)}', this)"><summary><b>📷 ${o.photos} photo${o.photos > 1 ? "s" : ""} for the website</b></summary><div class="apg"><p class="muted">Loading…</p></div></details>` : ""}
-      ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}}
+      ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}
       <p class="muted" style="font-size:13px">Paid so far: $${(o.paid_total || 0).toFixed(2)} of $${o.price || 0}</p>
       <div class="row" style="margin-top:10px">
         <label style="margin:0">Status</label><select data-s="${esc(o.id)}" style="width:auto">${r.statuses.filter((s) => !(s === "cancelled" && (o.paid_total || 0) > 0)).map((s) => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select>
@@ -125,6 +141,35 @@ async function waitlist() {
   $("wl").style.display = ""; $("wlc").textContent = "· " + r.people.length;
   $("wlist").innerHTML = r.people.length ? "<table>" + r.people.map((p) => `<tr><td>${esc(p.email)}</td><td class="muted">${new Date(p.created_at).toLocaleString()}</td></tr>`).join("") + "</table>" : '<p class="muted">Nobody yet.</p>';
 }
+// ---- Activity: who signs in, new accounts, requests, payments, messages (refreshes every 30 seconds) ----
+const AK = { login: ["🔑", "Signed in"], signup: ["✨", "New account"], logout: ["👋", "Signed out"], failed: ["⚠️", "Failed sign-in"], request: ["📝", "Sent a request"], paid: ["💵", "Paid"], message: ["💬", "Sent a message"], review: ["⭐", "Left a review"], deleted: ["🗑", "Deleted their account"] };
+const AF = [["all", "All"], ["login", "Sign-ins"], ["signup", "New accounts"], ["request", "Requests"], ["paid", "Payments"], ["message", "Messages"], ["failed", "Failed"]];
+let ACT = null, aView = "feed", aKind = "all";
+const ago = (t) => { const s = (Date.now() - new Date(t)) / 1000; return s < 60 ? "just now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : s < 604800 ? Math.floor(s / 86400) + "d ago" : new Date(t).toLocaleDateString(); };
+async function activity() {
+  const r = await call("/api/admin/activity"); if (!r.ok) return;
+  ACT = r; $("act").style.display = ""; drawActivity();
+}
+function drawActivity() {
+  if (!ACT) return;
+  const st = ACT.stats, q = $("asearch").value.trim().toLowerCase();
+  $("atiles").innerHTML = [["Accounts", st.accounts], ["New this week", st.new_week], ["Signed in today", st.logins_day], ["Signed in now", st.signed_in], ["Failed sign-ins today", st.failed_day]].map(([k, v]) => `<div class="tile"><small>${k}</small><b>${v || 0}</b></div>`).join("");
+  $("achips").innerHTML = aView === "feed" ? AF.map(([k, n]) => `<button class="${k === aKind ? "on" : ""}" data-ak="${k}">${n}</button>`).join("") : "";
+  const hit = (...xs) => !q || xs.some((x) => String(x || "").toLowerCase().includes(q));
+  if (aView === "feed") {
+    const ev = ACT.events.filter((e) => (aKind === "all" || e.kind === aKind) && hit(e.name, e.email, e.place, e.device, e.extra));
+    $("alist").innerHTML = ev.length ? `<div class="afeed">${ev.map((e) => { const [ic, lab] = AK[e.kind] || ["•", e.kind]; return `<div class="aev k-${esc(e.kind)}"><span class="aic">${ic}</span><div class="amain"><b>${esc(e.name || e.email || "Someone")}</b> <span class="muted">${esc(e.name ? e.email : "")}</span><div>${lab}${e.extra ? ` <span class="muted">· ${esc(e.extra)}</span>` : ""}</div><small class="muted">${esc(e.place || "Unknown place")} · ${esc(e.device || "")}</small></div><time class="muted" title="${new Date(e.at).toLocaleString()}">${ago(e.at)}</time></div>`; }).join("")}</div>` : '<p class="muted">Nothing yet. Sign-ins and requests show up here as they happen.</p>';
+  } else {
+    const ps = ACT.people.filter((p) => hit(p.name, p.email, p.place, p.device));
+    $("alist").innerHTML = ps.length ? `<div style="overflow-x:auto"><table class="apeople"><tr><th>Person</th><th>Last seen</th><th>Where</th><th>Device</th><th>Websites</th><th>Joined</th></tr>${ps.map((p) => `<tr><td>${p.signed_in ? '<span class="dot" title="Signed in"></span>' : ""}<b>${esc(p.name || "")}</b><br><span class="muted">${esc(p.email)}</span>${p.verified ? "" : ' <span class="muted">(not verified)</span>'}</td><td>${p.last_seen ? ago(p.last_seen) : '<span class="muted">—</span>'}</td><td>${esc(p.place || "—")}</td><td>${esc(p.device || "—")}</td><td>${p.orders}</td><td class="muted">${new Date(p.created_at).toLocaleDateString()}</td></tr>`).join("")}</table></div>` : '<p class="muted">No accounts yet.</p>';
+  }
+}
+document.addEventListener("click", (e) => {
+  const k = e.target.closest("[data-ak]"); if (k) { aKind = k.dataset.ak; drawActivity(); }
+  const v = e.target.closest("[data-av]"); if (v) { aView = v.dataset.av; document.querySelectorAll("[data-av]").forEach((b) => b.classList.toggle("on", b === v)); drawActivity(); }
+});
+$("asearch").oninput = drawActivity;
+setInterval(() => { if (KEY && !document.hidden && $("act").style.display !== "none") activity(); }, 30000);
 $("padd").onclick = () => promos({ action: "create", code: $("pcode").value, percent: $("ppct").value, max_uses: $("pmax").value, days: $("pdays").value });
 $("go").onclick = () => { KEY = $("key").value; load(); };
 $("key").onkeydown = (e) => { if (e.key === "Enter") $("go").click(); };
