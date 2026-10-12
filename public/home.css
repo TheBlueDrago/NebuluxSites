@@ -260,3 +260,6 @@ body.menu-open .menu-btn span:nth-child(1){transform:translateY(7px) rotate(45de
 /* the Try it sketch is its own little website: don't let the page's header/nav styles leak in */
 body.home .tryit .tsite header{position:static;display:block;background:none;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;box-shadow:none;transition:none;padding:48px 26px 34px;z-index:auto}
 body.home .tryit .tsite nav{position:static;background:none!important;backdrop-filter:none!important;box-shadow:none!important;transform:none;opacity:1;visibility:visible;inset:auto;height:auto;width:auto;flex-direction:row}
+
+/* phones: the showcase caption stacks (name, then what it is) */
+@media (max-width:600px){.shot .cap{flex-direction:column;align-items:flex-start;gap:2px}}
