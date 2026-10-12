@@ -122,6 +122,19 @@ async function ghFile(env, repo, file) {
 
 const previewKey = async (env, id) => (await sha("preview:" + id + ":" + (env.ADMIN_KEY || env.RESEND_API_KEY || ""))).slice(0, 24);
 
+// Customer photos: only real images (checked by their first bytes, not just the name), 1.5 MB at most.
+const PHOTO_MAX = 20, PHOTO_TYPES = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47], "image/gif": [0x47, 0x49, 0x46, 0x38], "image/webp": [0x52, 0x49, 0x46, 0x46] };
+function photoBytes(type, data) {
+  const magic = PHOTO_TYPES[type]; if (!magic || typeof data !== "string" || data.length > 2100000) return null;
+  let bin; try { bin = atob(data); } catch { return null; }
+  if (bin.length < 12 || bin.length > 1572864) return null;
+  const b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  if (!magic.every((v, i) => b[i] === v)) return null;
+  if (type === "image/webp" && String.fromCharCode(b[8], b[9], b[10], b[11]) !== "WEBP") return null;
+  return b;
+}
+const photoResponse = (row) => new Response(new Uint8Array(row.data), { headers: { "content-type": row.type, "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'" } });
+
 let ready = false;
 async function ensure(db) {
   if (ready) return;
@@ -133,6 +146,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, percent INTEGER, uses INTEGER DEFAULT 0, max_uses INTEGER DEFAULT 0, expires INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS reviews (order_id TEXT PRIMARY KEY, user_id TEXT, name TEXT, business TEXT, stars INTEGER, text TEXT, approved INTEGER DEFAULT 0, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS upgrades (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, text TEXT, status TEXT DEFAULT 'asked', price INTEGER DEFAULT 0, at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, type TEXT, data BLOB, size INTEGER, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
@@ -333,6 +347,7 @@ async function api(req, env, path) {
     if (busy) return json({ error: `You have a website in the works (${busy.id}). Finish or cancel it before deleting your account.` }, 400);
     await db.batch([
       db.prepare("DELETE FROM orders WHERE user_id = ?").bind(u.id),
+      db.prepare("DELETE FROM photos WHERE user_id = ?").bind(u.id),
       db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
       db.prepare("DELETE FROM trusted WHERE user_id = ?").bind(u.id),
       db.prepare("DELETE FROM codes WHERE email = ?").bind(u.email),
@@ -577,15 +592,45 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     await mail(env, env.OWNER_EMAIL, `Update request for ${o.id} from ${u.name}`, `${u.name} (${u.email}) wants an update to ${o.kind || o.id}:\n\n${text}\n\nSet a price on the admin page: ${SITE}/admin.html`);
     return json({ ok: true });
   }
+  // ---- photos for the website (logo, products, the place, the team...) ----
+  // The browser shrinks each photo first, so they fit in the database: up to 20 per website, 1.5 MB each.
+  // Only the customer (and the owner, below) can see them, and they can't change once the website is finished.
+  if (path === "/api/photos" || path === "/api/photos/add" || path === "/api/photos/remove" || path.startsWith("/api/photo/")) {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (path.startsWith("/api/photo/")) {
+      const row = await db.prepare("SELECT type, data FROM photos WHERE id = ? AND user_id = ?").bind(Number(path.slice(11)) || 0, u.id).first();
+      return row ? photoResponse(row) : new Response("Not found", { status: 404 });
+    }
+    const order = await db.prepare("SELECT id, status FROM orders WHERE id = ? AND user_id = ?").bind(clip(body.order || new URL(req.url).searchParams.get("order"), 20), u.id).first();
+    if (!order) return json({ error: "Website not found." }, 404);
+    if (path === "/api/photos") {
+      const r = await db.prepare("SELECT id, size, at FROM photos WHERE order_id = ? AND user_id = ? ORDER BY id").bind(order.id, u.id).all();
+      return json({ photos: r.results || [], max: PHOTO_MAX });
+    }
+    if (["complete", "cancelled"].includes(order.status)) return json({ error: "This website is finished, so its photos can't be changed." }, 400);
+    if (path === "/api/photos/remove") {
+      await db.prepare("DELETE FROM photos WHERE id = ? AND order_id = ? AND user_id = ?").bind(Number(body.id) || 0, order.id, u.id).run();
+      return json({ ok: true });
+    }
+    if (!(await allow("photo:" + u.id, 80, 3600))) return json({ error: "Too many photos at once. Please wait a while." }, 429);
+    const bytes = photoBytes(body.type, body.data);
+    if (!bytes) return json({ error: "That file isn't a photo we can use. Send a JPG, PNG, WebP or GIF under 1.5 MB." }, 400);
+    // The insert checks the count itself, so uploads at the same time can't go over the limit.
+    const made = await db.prepare("INSERT INTO photos (order_id, user_id, type, data, size, at) SELECT ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM photos WHERE order_id = ?) < ?")
+      .bind(order.id, u.id, body.type, bytes, bytes.length, new Date().toISOString(), order.id, PHOTO_MAX).run();
+    if (!made.meta || !made.meta.changes) return json({ error: `You can add up to ${PHOTO_MAX} photos. Remove one to add another.` }, 400);
+    return json({ ok: true, id: made.meta.last_row_id });
+  }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
+    await db.prepare("DELETE FROM photos WHERE order_id = ? AND user_id = ? AND NOT EXISTS (SELECT 1 FROM orders WHERE id = ?)").bind(clip(body.id, 20), u.id, clip(body.id, 20)).run();
     await db.prepare("UPDATE orders SET user_hidden = 1 WHERE id = ? AND user_id = ? AND status = 'complete'").bind(clip(body.id, 20), u.id).run();
     return json({ ok: true });
   }
   if (path === "/api/orders") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
-    const r = await db.prepare("SELECT (SELECT COUNT(*) FROM messages m WHERE m.order_id = orders.id AND m.sender != 'customer') AS team_msgs, id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
+    const r = await db.prepare("SELECT (SELECT COUNT(*) FROM messages m WHERE m.order_id = orders.id AND m.sender != 'customer') AS team_msgs, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos, id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
     const deal = await firstDeal(db, u.id), first = deal.ok;
     for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
@@ -597,9 +642,17 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (!env.ADMIN_KEY) return json({ error: "Set the ADMIN_KEY secret on the Worker first." }, 503);
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
-    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/photos") {
+      const r = await db.prepare("SELECT id, type, size, at FROM photos WHERE order_id = ? ORDER BY id").bind(clip(new URL(req.url).searchParams.get("order"), 20)).all();
+      return json({ photos: r.results || [] });
+    }
+    if (path.startsWith("/api/admin/photo/")) {
+      const row = await db.prepare("SELECT type, data FROM photos WHERE id = ?").bind(Number(path.slice(17)) || 0).first();
+      return row ? photoResponse(row) : new Response("Not found", { status: 404 });
+    }
     if (path === "/api/admin/reviews") {
       if (req.method === "POST" && body.action === "approve") await db.prepare("UPDATE reviews SET approved = 1 - approved WHERE order_id = ?").bind(clip(body.id, 20)).run();
       if (req.method === "POST" && body.action === "delete") await db.prepare("DELETE FROM reviews WHERE order_id = ?").bind(clip(body.id, 20)).run();

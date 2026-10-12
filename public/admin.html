@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#05040f"><meta name="robots" content="noindex">
 <title>Orders · Nebulux Sites admin</title>
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
+<style>.apg{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin:8px 0}.apg a{display:block;aspect-ratio:1;border-radius:10px;overflow:hidden}.apg img{width:100%;height:100%;object-fit:cover}.apg p{grid-column:1/-1}.aph{margin:8px 0}</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
@@ -24,6 +25,19 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 let KEY = sessionStorage.getItem("ns-admin") || "";
+// Customer photos need the admin key, so they're fetched here and shown from memory (click one to download it).
+async function adminPhotos(id, box) {
+  const g = box.querySelector(".apg"); if (g.dataset.done) return; g.dataset.done = 1;
+  const r = await call("/api/admin/photos?order=" + encodeURIComponent(id));
+  const ext = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
+  g.innerHTML = "";
+  for (const [i, p] of (r.photos || []).entries()) {
+    const b = await fetch("/api/admin/photo/" + p.id, { headers: { "x-admin-key": KEY } }).then((x) => x.ok ? x.blob() : null).catch(() => null); if (!b) continue;
+    const u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = id + "-photo-" + (i + 1) + "." + (ext[p.type] || "jpg"); a.title = "Download";
+    a.innerHTML = '<img alt="">'; a.firstChild.src = u; g.appendChild(a);
+  }
+  if (!g.children.length) g.innerHTML = '<p class="muted">No photos.</p>';
+}
 const call = (url, body) => fetch(url, { method: body ? "POST" : "GET", headers: { "x-admin-key": KEY, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
 // Filter the order cards as you type.
 document.addEventListener("input", (e) => {
@@ -43,7 +57,7 @@ async function load() {
       <div class="row" style="justify-content:space-between"><b>${esc(o.id)} · ${esc(o.package)} · ${esc(o.kind)}</b><span><span class="tag">${esc(o.status)}</span>${o.claimed ? ` <span class="tag" style="background:#166534">says they paid</span>` : ""}</span></div>
       <p class="muted">${esc(o.name)} · <a href="mailto:${esc(o.email)}">${esc(o.email)}</a> · ${new Date(o.created_at).toLocaleString()}${o.deadline ? " · needed by " + esc(o.deadline) : ""}</p>
       <p style="white-space:pre-wrap;margin:8px 0">${esc(o.details)}</p>${o.wish ? `<p style="white-space:pre-wrap"><b>Anything else:</b> ${esc(o.wish)}</p>` : ""}${o.addons ? `<p><b>Add-ons:</b> ${esc(o.addons.split(",").join(", "))}</p>` : ""}
-      ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}
+      ${o.pages ? `<p class="muted">Pages: ${esc(o.pages)}</p>` : ""}${o.links ? `<p class="muted">Links: ${esc(o.links)}</p>` : ""}${o.photos ? `<details class="aph" ontoggle="if(this.open)adminPhotos('${esc(o.id)}', this)"><summary><b>📷 ${o.photos} photo${o.photos > 1 ? "s" : ""} for the website</b></summary><div class="apg"><p class="muted">Loading…</p></div></details>` : ""}
       ${o.status === "in review" ? `<div class="row" style="margin:6px 0 10px"><button class="btn" data-acc="${esc(o.id)}">✓ Accept</button><button class="btn ghost" data-dec="${esc(o.id)}">✕ Decline</button></div>` : ""}}
       <p class="muted" style="font-size:13px">Paid so far: $${(o.paid_total || 0).toFixed(2)} of $${o.price || 0}</p>
       <div class="row" style="margin-top:10px">

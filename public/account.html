@@ -4,6 +4,15 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#05040f">
 <title>Your account · Nebulux Sites</title>
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
+<style>
+.photodrop{border:1.5px dashed rgba(255,255,255,.18);border-radius:16px;padding:16px;background:rgba(255,255,255,.03)}
+.photodrop p{margin:0 0 10px}.photodrop p b{display:block;margin-bottom:2px}.photodrop p .muted{font-size:13px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px}.pgrid:empty{display:none}
+.pgrid figure{position:relative;margin:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.05)}
+.pgrid img{width:100%;height:100%;object-fit:cover;display:block}
+.pgrid button{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0}
+.pgrid p{grid-column:1/-1;margin:0}
+</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><nav id="nav"></nav></header>
@@ -100,6 +109,12 @@
         <label for="kind">What kind of website?</label><input id="kind" placeholder="e.g. a bakery, a portfolio, a soccer club, an online shop">
         <label for="details">Describe your website</label><textarea id="details" required placeholder="What's it for? What should people be able to do? Colors, style, sites you like… Describe everything here: after you order you get 5 free messages, then 10 more cost $1."></textarea>
         <div class="row"><div style="flex:1;min-width:200px"><label for="deadline">When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label for="links">Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
+        <label for="photoPick">Photos for your website <span class="muted" style="font-weight:500">(optional)</span></label>
+        <div class="photodrop" id="photoDrop">
+          <p><b>📷 Upload your images</b><span class="muted">Your logo, your products, your place, your team… anything you want on your website. Up to 20.</span></p>
+          <label class="btn ghost" for="photoPick">Choose photos</label><input id="photoPick" type="file" accept="image/*" multiple hidden>
+          <div class="pgrid" id="photoNew"></div>
+        </div>
         <p class="muted" style="font-size:13px;margin-top:12px">Sending a request means you agree to our <a href="/legal.html#terms" target="_blank">Terms</a>, including that we are <a href="/legal.html#liability" target="_blank">not liable</a> for losses from your website.</p>
         <button class="btn" style="margin-top:12px">Send my request</button>
       </form>
@@ -174,6 +189,7 @@ function orderCard(o) {
     ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then put it online one of these ways:</p><ul class="muted" style="text-align:left;margin:6px 0 10px 18px"><li><b>Recommended: Nebulux AI (free, no pricing).</b> Go to <a href="https://nebuluxai.com" target="_blank" rel="noopener">nebuluxai.com</a> and log in (or make a free account). Open <b>Website Designer</b>, press <b>New website</b>, choose <b>Upload ZIP</b> and pick this ZIP file. Your website goes live right away, and you can connect your own domain there. Best for one-page websites: it uses the main page only.</li><li><b>Cloudflare Pages</b> (free, and keeps every page): in Cloudflare, go to Workers &amp; Pages, then Create, then Pages, then Upload assets, and drop in your files.</li><li><b>Any other host or website builder</b>: upload the ZIP there, or ask its AI to upload it for you.</li></ul><p class="muted">Then connect your domain. Email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
     ${o.status === "complete" ? `<details class="msgs rev"><summary>⭐ Leave a review</summary><form class="revform" onsubmit="sendReview(event, '${esc(o.id)}')"><div class="stars" data-v="5">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="on">★</button>`).join("")}</div><textarea maxlength="600" required placeholder="How was it working with us? What do you think of your website?"></textarea><button class="btn">Send review</button><p class="muted" style="font-size:13px">We may show it on our homepage with your first name.</p></form></details>` : ""}
     ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>Messages with us${newMsgs(o) ? `<span class="newdot">${newMsgs(o)} new</span>` : ""}</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><p class="muted mnote" id="mn-${esc(o.id)}"></p><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
+    ${o.status === "cancelled" ? "" : `<details class="msgs photos" data-pid="${esc(o.id)}" ontoggle="if(this.open)loadPhotos('${esc(o.id)}')"><summary>📷 Your photos${o.photos ? ` <span class="muted">(${o.photos})</span>` : ""}</summary><div class="pgrid" id="pg-${esc(o.id)}"><p class="muted">Loading…</p></div>${o.status === "complete" ? "" : `<label class="btn ghost" style="margin-top:10px">Add photos<input type="file" accept="image/*" multiple hidden onchange="addPhotos('${esc(o.id)}', this)"></label><p class="muted" style="font-size:13px;margin-top:6px">Your logo, products, place or team: anything you want on your website.</p>`}</details>`}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -308,9 +324,58 @@ $("orderForm").onsubmit = async (e) => {
   btn.disabled = false; btn.textContent = label;
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
   try { localStorage.removeItem("ns-draft"); } catch {}
+  if (NEWPHOTOS.length) { btn.disabled = true; btn.textContent = "Uploading photos…"; const bad = await uploadPhotos(r.id, NEWPHOTOS.splice(0)); btn.disabled = false; btn.textContent = label; drawNewPhotos(); if (bad) toast(`${bad} photo${bad > 1 ? "s" : ""} couldn't upload. You can add them on your order.`); }
   toast(`🎉 Request ${r.id} sent! We'll email you as soon as we accept it.`);
   $("orderForm").reset(); await loadOrders(); view("dash");
 };
+// ---- photos: shrunk here first (max 1600px), then uploaded one at a time ----
+const NEWPHOTOS = [];
+async function shrink(f) {
+  if (!/^image\//.test(f.type)) return null;
+  if (f.type === "image/gif" && f.size <= 1500000) return { type: f.type, blob: f };
+  // SVG logos are drawn through an <img> (createImageBitmap can't read them) and saved as PNG
+  const svg = f.type === "image/svg+xml";
+  const img = svg ? await new Promise((ok) => { const i = new Image(), u = URL.createObjectURL(f); i.onload = () => ok(i.width ? i : null); i.onerror = () => ok(null); i.src = u; }) : await createImageBitmap(f).catch(() => null); if (!img) return null;
+  if (svg && Math.max(img.width, img.height) < 800) { const m = 800 / Math.max(img.width, img.height); img.width *= m; img.height *= m; }
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  // PNGs keep see-through parts (logos); everything else becomes a JPG
+  const png = f.type === "image/png" || svg;
+  let blob = await new Promise((ok) => c.toBlob(ok, png ? "image/png" : "image/jpeg", .85));
+  if (png && blob && blob.size > 1500000) blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", .85));
+  return blob && blob.size <= 1500000 ? { type: blob.type, blob } : null;
+}
+const b64 = (blob) => new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+async function uploadPhotos(id, list) {
+  let bad = 0;
+  for (const p of list) { const r = await post("/api/photos/add", { order: id, type: p.type, data: await b64(p.blob) }); if (!r.ok) bad++; }
+  return bad;
+}
+function drawNewPhotos() {
+  $("photoNew").innerHTML = NEWPHOTOS.map((p, i) => `<figure><img src="${p.url}" alt=""><button type="button" aria-label="Remove photo" onclick="NEWPHOTOS.splice(${i},1);drawNewPhotos()">×</button></figure>`).join("");
+}
+$("photoPick").onchange = async (e) => {
+  for (const f of [...e.target.files]) {
+    if (NEWPHOTOS.length >= 20) { toast("You can add up to 20 photos."); break; }
+    const p = await shrink(f); if (!p) { toast(`"${f.name}" isn't a photo we can use.`); continue; }
+    p.url = URL.createObjectURL(p.blob); NEWPHOTOS.push(p);
+  }
+  e.target.value = ""; drawNewPhotos();
+};
+async function loadPhotos(id) {
+  const g = document.getElementById("pg-" + id); if (!g) return;
+  const r = await fetch("/api/photos?order=" + encodeURIComponent(id)).then((x) => x.json()).catch(() => ({}));
+  const o = ORDERS.find((x) => x.id === id) || {}, can = !["complete", "cancelled"].includes(o.status);
+  g.innerHTML = (r.photos || []).length ? r.photos.map((p) => `<figure><a href="/api/photo/${p.id}" target="_blank"><img src="/api/photo/${p.id}" alt="" loading="lazy"></a>${can ? `<button type="button" aria-label="Remove photo" onclick="removePhoto('${esc(id)}', ${p.id})">×</button>` : ""}</figure>`).join("") : '<p class="muted">No photos yet.</p>';
+}
+async function addPhotos(id, input) {
+  const files = [...input.files]; input.value = ""; let n = 0;
+  toast("Uploading " + files.length + " photo" + (files.length > 1 ? "s" : "") + "…");
+  for (const f of files) { const p = await shrink(f); if (!p) continue; const r = await post("/api/photos/add", { order: id, type: p.type, data: await b64(p.blob) }); if (r.ok) n++; else if (r.error) { toast(r.error); break; } }
+  if (n) toast(`📷 Added ${n} photo${n > 1 ? "s" : ""}.`);
+  loadPhotos(id);
+}
+async function removePhoto(id, pid) { await post("/api/photos/remove", { order: id, id: pid }); loadPhotos(id); }
 function toast(msg) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.classList.add("out"), 5000); setTimeout(() => t.remove(), 5600);
