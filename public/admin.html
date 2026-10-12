@@ -15,7 +15,8 @@
 .apeople{width:100%;border-collapse:collapse;font-size:14px}.apeople th{text-align:left;font-size:12px;opacity:.7;padding:6px 8px}.apeople td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px}
 </style>
-<style>.readyhint{margin:6px 0 8px;padding:10px 12px;border-radius:12px;background:rgba(192,132,252,.12);border:1px solid rgba(192,132,252,.3);font-size:14px}</style>
+<style>.lf{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:#c4b5fd;text-align:left}.lf input{width:100%;font-weight:400}.lf small{font-weight:400;color:#8f88b8}
+.readyhint{margin:6px 0 8px;padding:10px 12px;border-radius:12px;background:rgba(192,132,252,.12);border:1px solid rgba(192,132,252,.3);font-size:14px}</style>
 </head>
 <body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites · Admin</a></header>
@@ -27,13 +28,13 @@
     <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><input id="asearch" placeholder="Search name, email, place…" style="flex:1;min-width:200px"><div class="achips" id="achips"></div></div>
     <div id="alist"></div>
   </div>
-  <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="lst" style="display:none">
     <h2 style="margin:0 0 6px;text-align:left">Ready-made websites</h2>
     <p class="muted">Websites for sale on <a href="/ready.html" target="_blank" style="text-decoration:underline">/ready.html</a>. Customers send a request (it shows up in Orders), you accept it, then they pay. Price $0 = "Coming soon". Extras: change the name +$5, extra protection +$25.</p>
     <div id="llist"></div>
     <details style="margin-top:12px"><summary style="font-weight:700;cursor:pointer">+ Add a website</summary><div class="lform" data-lid=""></div></details>
   </div>
+  <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
@@ -179,15 +180,15 @@ $("asearch").oninput = drawActivity;
 setInterval(() => { if (KEY && !document.hidden && $("act").style.display !== "none") activity(); }, 30000);
 // ---- Ready-made websites (/ready.html) ----
 const lform = (l = {}) => `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-  <input data-f="title" placeholder="Name" value="${esc(l.title || "")}" style="flex:2;min-width:160px">
-  <input data-f="price" type="number" min="0" placeholder="Price $" value="${l.price || ""}" style="width:110px">
-  <input data-f="sort" type="number" placeholder="Order" value="${l.sort || 0}" style="width:80px" title="Lower shows first">
+  <label class="lf" style="flex:2;min-width:160px">Name<input data-f="title" placeholder="Golden Batch" value="${esc(l.title || "")}"></label>
+  <label class="lf" style="width:130px">Price ($)<input data-f="price" type="number" min="0" placeholder="0 = coming soon" value="${l.price || ""}"></label>
+  <label class="lf" style="width:150px">Position on page<input data-f="sort" type="number" value="${l.sort || 0}" title="0 shows first, then 1, 2…"><small>0 = first</small></label>
 </div>
-<textarea data-f="blurb" placeholder="What the website is, in one or two sentences" style="margin-top:8px;min-height:60px">${esc(l.blurb || "")}</textarea>
-<textarea data-f="includes" placeholder="What's included (one per line), e.g.&#10;Home page&#10;Menu with prices&#10;Contact page" style="margin-top:8px;min-height:110px">${esc(l.includes || "")}</textarea>
+<label class="lf" style="margin-top:8px">Description</label><textarea data-f="blurb" placeholder="What the website is, in one or two sentences" style="margin-top:8px;min-height:60px">${esc(l.blurb || "")}</textarea>
+<label class="lf" style="margin-top:8px">What&rsquo;s included (one per line)</label><textarea data-f="includes" placeholder="What's included (one per line), e.g.&#10;Home page&#10;Menu with prices&#10;Contact page" style="margin-top:8px;min-height:110px">${esc(l.includes || "")}</textarea>
 <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-  <input data-f="image" placeholder="Picture: /ex-goldenbatch.jpg or https://…" value="${esc(l.image || "")}" style="flex:1;min-width:200px">
-  <input data-f="demo" placeholder="Live demo link (optional) https://…" value="${esc(l.demo || "")}" style="flex:1;min-width:200px">
+  <label class="lf" style="flex:1;min-width:200px">Picture<input data-f="image" placeholder="Picture: /ex-goldenbatch.jpg or https://…" value="${esc(l.image || "")}"></label>
+  <label class="lf" style="flex:1;min-width:200px">Live demo link<input data-f="demo" placeholder="Live demo link (optional) https://…" value="${esc(l.demo || "")}"></label>
 </div>
 <div class="row" style="gap:8px;margin-top:8px;align-items:center"><label style="display:flex;gap:6px;align-items:center"><input data-f="active" type="checkbox" ${l.active === 0 ? "" : "checked"}> Show it for sale</label>
   <button class="btn" data-lsave>Save</button>${l.id ? '<button class="btn ghost" data-ldel>Delete</button>' : ""}<span class="ok" data-lok></span></div>`;

@@ -5,6 +5,24 @@
 <title>Your account · Nebulux Sites</title>
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px;max-width:1150px;margin:0 auto 60px}
+.rcard{border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column}
+.rshot{aspect-ratio:16/10;overflow:hidden;background:#110d26;position:relative}.rshot img{width:100%;height:auto;display:block;transition:transform 4s ease}.rcard:hover .rshot img{transform:translateY(calc(-100% + 220px))}
+.rbody{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1}.rbody h3{margin:0;font-size:22px}.rbody p{margin:0;color:#b9b2df;font-size:15px;line-height:1.5}
+.rinc{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}.rinc b{display:block;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#c4b5fd;margin-bottom:6px}
+.rinc ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}.rinc li{position:relative;padding-left:22px;font-size:14.5px;color:#ddd8f7;line-height:1.4}.rinc li:before{content:"✓";position:absolute;left:0;color:#4ade80;font-weight:800}
+.every{max-width:900px;margin:0 auto 34px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px}.every span{font-size:14px;padding:8px 14px;border-radius:999px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);color:#bbf7d0}
+.rprice{font:800 28px Sora,Inter,sans-serif;color:#fff}.rprice small{font:500 14px Inter,sans-serif;color:#a9a3cf}
+.rextra{display:flex;align-items:center;gap:10px;font-size:15px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer}.rextra b{margin-left:auto;color:#d8b4fe}
+.rextra span{display:flex;flex-direction:column;gap:2px}.rextra small{font-weight:400;font-size:12.5px;color:#a9a3cf;line-height:1.35}
+.rbody label.rextra{align-items:flex-start;display:flex!important;justify-content:flex-start;text-align:left;margin:0;font-weight:600;color:#ede9fe}.rbody .rextra input{width:18px!important;height:18px;min-width:0;flex:none;margin:0;padding:0;accent-color:#a855f7}
+.rbody input[type=text],.rbody textarea{width:100%}.rbody textarea{min-height:64px;resize:vertical}
+.rbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:6px}.rbtns .btn{flex:1;text-align:center;justify-content:center}
+.rmsg{font-size:14px;margin:0}.rmsg.err{color:#fca5a5}.rmsg.ok{color:#86efac}
+.rnote{text-align:center;color:#a9a3cf;font-size:14px;max-width:640px;margin:-30px auto 40px}.rnote b{color:#e9d5ff}
+#v-ready .rgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin:0 0 14px;max-width:none}
+#v-ready .every{justify-content:flex-start;margin:0 0 16px}
+.dside .sm{display:none}@media (max-width:900px){.dside .lg{display:none}.dside .sm{display:inline}}
 .readytip{display:block;margin:0 0 16px;padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(192,38,211,.12));border:1px solid rgba(192,132,252,.3);font-size:15px}.readytip span{text-decoration:underline}
 .kinds{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
 .kinds button{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
@@ -86,6 +104,7 @@
       <button data-v="prev"><span class="di"><svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18z"/></svg></span><b>Preview</b><small>See your website live</small></button>
       <button data-v="mon"><span class="di"><svg viewBox="0 0 24 24"><path d="M3 13h2l3-7 4 14 3-9 2 2h4v2h-5l-1-1-3 9-4-14-2 5H3z"/></svg></span><b>Monitor</b><small>Health & updates</small></button>
       <button data-v="req"><span class="di"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></span><b>Request</b><small>Ask for a website</small></button>
+      <button data-v="ready"><span class="di"><svg viewBox="0 0 24 24"><path d="M21.4 11.6 12.4 2.6A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .5.2 1 .6 1.4l9 9a2 2 0 0 0 2.8 0l7-7a2 2 0 0 0 0-2.8zM6.5 8A1.5 1.5 0 1 1 6.5 5a1.5 1.5 0 0 1 0 3z"/></svg></span><b><span class="lg">Ready-made</span><span class="sm">Ready</span></b><small>Buy one already built</small></button>
       <button class="dme" id="dme" title="Account settings"></button>
     </aside>
     <section class="dmain">
@@ -101,12 +120,18 @@
         <h2 class="dh">Monitor</h2><p class="muted dsub">Check that your finished website is online, and ask us for updates.</p>
         <div id="monBody"></div>
       </div>
+      <div id="v-ready" style="display:none">
+        <h2 class="dh">Ready-made websites</h2><p class="muted dsub">Websites we already built. Pick one, add your business name, and send a request. Once we accept it, you pay the $5 starting fee (it counts toward the total), then the rest.</p>
+        <div class="every"><span>✓ The whole website as a ZIP</span><span>✓ Works on phones and computers</span><span>✓ Help to put it online</span><span>✓ Yours to keep</span></div>
+        <div class="rgrid" id="readyBody"><p class="muted">Loading…</p></div>
+        <p class="muted" style="font-size:13px;margin-top:6px"><b>Good to know:</b> if a website takes payments, you connect your own payment account to it (like Stripe), even on a ready-made website. You also set up your own domain and hosting. We show you how.</p>
+      </div>
       <div id="v-req" style="display:none">
         <div id="reqBlocked" style="display:none"></div>
         <div class="box wide" id="reqBox" style="margin:0">
       <h2 style="margin:0 0 6px;text-align:left">Order a website</h2>
       <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished. You get your website as a ZIP file with instructions. You set up your own domain, hosting, and a payment provider (like Stripe or PayPal) if your website takes payments; we show you how.</p>
-      <a class="readytip" href="/ready.html">⚡ <b>Want it faster?</b> Buy a website we already made → <span>Ready-made websites</span></a>
+      <a class="readytip" href="#ready" onclick="view('ready');return false">⚡ <b>Want it faster?</b> Buy a website we already made → <span>Ready-made websites</span></a>
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
         <label>Add-ons <span class="muted" style="font-weight:500">(optional)</span></label><div class="addons" id="addons"></div>
@@ -205,13 +230,47 @@ const ACTIVE = (o) => !["complete", "cancelled"].includes(o.status);
 const srcOf = (o) => o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
 function view(v, id) {
   if (id) pickId = id;
-  for (const k of ["dash", "prev", "mon", "req"]) $("v-" + k).style.display = k === v ? "" : "none";
+  for (const k of ["dash", "prev", "mon", "req", "ready"]) $("v-" + k).style.display = k === v ? "" : "none";
   document.querySelectorAll(".dside button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   if (v === "prev") drawPreview();
   if (v === "mon") drawMonitor();
+  if (v === "ready") drawReady();
   try { history.replaceState(null, "", "#" + v); } catch (e) {}
 }
 document.querySelectorAll(".dside button").forEach((b) => (b.onclick = () => view(b.dataset.v)));
+// ---- Ready-made websites tab (same list and request as /ready.html) ----
+let READY = null;
+async function drawReady() {
+  if (!READY) READY = await fetch("/api/listings").then((x) => x.json()).catch(() => ({}));
+  const L = READY.listings || [], X = READY.extras || {};
+  $("readyBody").innerHTML = L.length ? L.map((l) => `<div class="rcard" data-id="${esc(l.id)}" data-price="${l.price}">
+    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy">` : ""}</div>
+    <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
+      ${l.includes ? `<div class="rinc"><b>What's included</b><ul>${l.includes.split("\n").filter(Boolean).map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>` : ""}
+      <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : "<small>Price coming soon</small>"}</div>
+      ${Object.entries(X).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}"><span>${esc(x.name)}${x.blurb ? `<small>${esc(x.blurb)}</small>` : ""}</span><b>+$${x.price}</b></label>`).join("")}
+      <input type="text" class="rname" maxlength="60" placeholder="Your business name" hidden>
+      <textarea class="rmore" maxlength="1000" rows="2" placeholder="Anything else you want changed? We'll tell you the price before you pay."></textarea>
+      <div class="rbtns">${l.demo ? `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">See it live ↗</a>` : ""}<button class="btn rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
+      <p class="rmsg"></p></div></div>`).join("") : '<p class="muted">No ready-made websites right now. Check back soon!</p>';
+}
+$("readyBody").addEventListener("change", (e) => {
+  const card = e.target.closest(".rcard"); if (!card || !e.target.dataset.x) return;
+  const price = +card.dataset.price, X = (READY && READY.extras) || {};
+  card.querySelector(".rname").hidden = !card.querySelector('[data-x="rename"]:checked');
+  let t = price; card.querySelectorAll("[data-x]:checked").forEach((c) => (t += (X[c.dataset.x] || {}).price || 0));
+  if (price > 0) card.querySelector(".rgo").textContent = "Request it · $" + t;
+});
+$("readyBody").addEventListener("click", async (e) => {
+  const b = e.target.closest(".rgo"); if (!b || b.disabled) return;
+  const card = b.closest(".rcard"), msg = card.querySelector(".rmsg"); msg.className = "rmsg"; msg.textContent = "";
+  b.disabled = true; const label = b.textContent; b.textContent = "Sending…";
+  const r = await post("/api/ready/request", { id: card.dataset.id, extras: [...card.querySelectorAll("[data-x]:checked")].map((c) => c.dataset.x), name: card.querySelector(".rname").value, note: card.querySelector(".rmore").value });
+  b.disabled = false; b.textContent = label;
+  if (!r.ok) { msg.className = "rmsg err"; msg.textContent = r.error || "Something went wrong."; return; }
+  toast(`🎉 Request ${r.id} sent! We'll email you when we accept it.`);
+  await loadOrders(); view("dash");
+});
 function drawPreview() {
   const list = ORDERS.filter((o) => o.status !== "cancelled");
   if (!list.length) { $("psel").style.display = "none"; $("pfull").style.display = "none"; $("pview").innerHTML = '<div class="browser empty big"><div class="dots"><b></b><b></b><b></b></div><div class="soon">No website yet. Send a request and your website will show up here while we build it.</div></div>'; return; }
@@ -452,7 +511,7 @@ async function start() {
   };
   $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
   show("app"); await loadOrders(); setInterval(() => loadOrders().catch(() => {}), 60000);
-  const hv = location.hash.slice(1); view(["dash", "prev", "mon", "req"].includes(hv) ? hv : want ? "req" : "dash");
+  const hv = location.hash.slice(1); view(["dash", "prev", "mon", "req", "ready"].includes(hv) ? hv : want ? "req" : "dash");
 }
 const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");
