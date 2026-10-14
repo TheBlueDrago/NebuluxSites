@@ -13,7 +13,7 @@
   ];
   const css = document.createElement("style");
   css.textContent = `
-#helpBtn{position:fixed;left:16px;bottom:18px;z-index:50;display:flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:999px;font:inherit;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(100deg,#6b5bff,#d16cf5);box-shadow:0 10px 30px -8px rgba(193,90,240,.7)}
+@media(max-width:700px){body{padding-bottom:76px}}#helpBtn{position:fixed;left:16px;bottom:18px;z-index:50;display:flex;align-items:center;gap:8px;padding:12px 18px;border:0;border-radius:999px;font:inherit;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(100deg,#6b5bff,#d16cf5);box-shadow:0 10px 30px -8px rgba(193,90,240,.7)}
 #helpBtn:hover{transform:translateY(-2px)}
 #helpBox{position:fixed;left:16px;bottom:78px;z-index:50;width:min(380px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 110px));overflow:auto;display:none;background:rgba(20,16,48,.97);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px;box-shadow:0 30px 80px -20px rgba(0,0,0,.8);backdrop-filter:blur(14px)}
 #helpBox.open{display:block;animation:hin .2s ease-out}@keyframes hin{from{opacity:0;transform:translateY(10px)}}
