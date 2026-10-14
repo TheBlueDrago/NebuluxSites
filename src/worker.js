@@ -162,8 +162,6 @@ const READY_EXTRAS = {
 const READY_SEED = [
   ["golden-batch", "Golden Batch", "A warm, cozy cookie shop website made to sell. Big photos, a clear menu and order buttons everywhere, so visitors turn into customers.", "/ex-goldenbatch.jpg", "",
     "Home page with a big headline and Order button\nCookie menu with photos, flavors and prices\nBuild-a-dozen box page\nThe Craft (your story) page\nReviews section\nFAQ\nCatering page\nCart and checkout pages (you connect your own payments)"],
-  ["baseweb-ai", "BaseWeb AI", "A sleek, dark startup landing page for an app or software product. Made to explain what your product does and get people to sign up.", "/ex-creator.jpg", "",
-    "Landing page with a big headline and a try-it box\nFeatures section\nLive demo screens of the product\nTemplates page\nPricing page\nContact page\nSign-up buttons throughout"],
   ["krivian-bakery", "Krivian Bakery", "A complete bakery store: customers pick a flavor and a pack, sign in with Google and check out for pickup. Live and working at krivianbakery.com.", "/ex-krivian.jpg", "https://krivianbakery.com/",
     "Photo slideshow you can swipe\nFlavor menu with photos (8 flavors)\nPacks of 4, 8 and 12 with prices\nCart and pickup checkout\nGoogle sign-in and account menu\nHow it works and FAQ sections\nPrivacy, Terms and Allergens pages\nFriendly 404 page"],
 ];
