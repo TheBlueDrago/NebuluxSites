@@ -233,6 +233,9 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
 })();
 </script>
+<a class="mcta" id="mcta" href="/account.html#req"><span>Start my website</span><small>Free to request · $5 to start</small></a>
+<style>.mcta{display:none}@media(max-width:700px){.mcta{display:flex;flex-direction:column;justify-content:center;position:fixed;left:12px;right:84px;bottom:12px;z-index:60;min-height:54px;padding:8px 16px;border-radius:16px;background:linear-gradient(100deg,#6366f1,#d946ef);color:#fff;text-decoration:none;box-shadow:0 10px 30px rgba(99,102,241,.45);transform:translateY(140%);transition:transform .35s ease}.mcta.on{transform:none}.mcta span{font-weight:800;font-size:15px}.mcta small{font-size:12px;opacity:.85}}</style>
+<script>(function(){var b=document.getElementById("mcta"),h=document.querySelector(".hx .ctas"),f=document.querySelector(".final");if(!b||!h||!("IntersectionObserver"in window))return;var heroOut=false,finalIn=false;function u(){b.classList.toggle("on",heroOut&&!finalIn)}new IntersectionObserver(function(e){heroOut=!e[0].isIntersecting&&e[0].boundingClientRect.top<0;u()}).observe(h);if(f)new IntersectionObserver(function(e){finalIn=e[0].isIntersecting;u()}).observe(f)})()</script>
 <script src="/help.js" defer></script>
 <script>
 // The ready-made websites (/api/listings), up to 3 on the homepage.
