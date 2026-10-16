@@ -27,6 +27,6 @@ const faq = ld.find((x) => x["@type"] === "FAQPage");
 ok(faq && faq.mainEntity.every((q) => home.includes(q.name)), "every search-engine FAQ question is on the page");
 // The Help button's answers (public/help.js).
 const help = readFileSync(new URL("public/help.js", R), "utf8");
-ok(help.includes(`One time (${PACKAGES.onetime.price}): ${PACKAGES.onetime.time}`) && help.includes(`${PACKAGES.monthly3.label}: ${PACKAGES.monthly3.time}`) && help.includes(`${PACKAGES.monthly5.label}: ${PACKAGES.monthly5.time}`), "Help: prices and times");
-ok(help.includes(`(+${READY_EXTRAS.rename.price})`) && help.includes(`(+${READY_EXTRAS.protect.price})`), "Help: ready-made extras");
+ok(help.includes(`One time ($${PACKAGES.onetime.price}): ${PACKAGES.onetime.time}`) && help.includes(`${PACKAGES.monthly3.label}: ${PACKAGES.monthly3.time}`) && help.includes(`${PACKAGES.monthly5.label}: ${PACKAGES.monthly5.time}`), "Help: prices and times");
+ok(help.includes(`(+$${READY_EXTRAS.rename.price})`) && help.includes(`(+$${READY_EXTRAS.protect.price})`), "Help: ready-made extras");
 if (fails) process.exit(1);
