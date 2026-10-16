@@ -17,4 +17,12 @@ ok(PACKAGES.monthly3.label === `$${per(PACKAGES.monthly3)}/month` && PACKAGES.mo
 const prices = Object.values(PACKAGES).map((p) => p.price);
 ok(Math.min(...prices) < PACKAGES.monthly3.price && PACKAGES.onetime.price === Math.min(...prices), "paying once is the cheapest total");
 for (const [id, a] of Object.entries(ADDONS)) ok(Number.isInteger(a.price) && a.price > 0 && a.name && a.blurb, `add-on ${id} has a name, blurb and whole-dollar price`);
+// The search-engine data (JSON-LD) on the home page lists the same prices.
+const raw = readFileSync(new URL("public/index.html", R), "utf8");
+const ld = [...raw.matchAll(/<script type="application/ld+json">([^<]*)</script>/g)].map((m) => JSON.parse(m[1]));
+const svc = ld.find((x) => x["@type"] === "ProfessionalService");
+const offer = (n) => Number(svc.offers.find((o) => o.name.includes(n))?.price);
+ok(offer("One") === PACKAGES.onetime.price && offer("3 months") === per(PACKAGES.monthly3) && offer("5 months") === per(PACKAGES.monthly5), "search-engine offers match the prices");
+const faq = ld.find((x) => x["@type"] === "FAQPage");
+ok(faq && faq.mainEntity.every((q) => home.includes(q.name)), "every search-engine FAQ question is on the page");
 if (fails) process.exit(1);
