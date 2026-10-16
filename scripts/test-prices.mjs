@@ -2,7 +2,7 @@
 // charges (PACKAGES, ADDONS in src/worker.js). Run: npm test
 import { readFileSync } from "node:fs";
 const R = new URL("..", import.meta.url);
-const { PACKAGES, ADDONS } = await import(new URL("src/worker.js", R));
+const { PACKAGES, ADDONS, READY_EXTRAS } = await import(new URL("src/worker.js", R));
 let fails = 0;
 const ok = (c, m) => { console.log((c ? "ok " : "FAIL ") + m); if (!c) fails++; };
 const page = (f) => readFileSync(new URL("public/" + f, R), "utf8").replace(/<[^>]*>/g, " ").replace(/&ndash;/g, "–").replace(/\s+/g, " ");
@@ -25,4 +25,8 @@ const offer = (n) => Number(svc.offers.find((o) => o.name.includes(n))?.price);
 ok(offer("One") === PACKAGES.onetime.price && offer("3 months") === per(PACKAGES.monthly3) && offer("5 months") === per(PACKAGES.monthly5), "search-engine offers match the prices");
 const faq = ld.find((x) => x["@type"] === "FAQPage");
 ok(faq && faq.mainEntity.every((q) => home.includes(q.name)), "every search-engine FAQ question is on the page");
+// The Help button's answers (public/help.js).
+const help = readFileSync(new URL("public/help.js", R), "utf8");
+ok(help.includes(`One time (${PACKAGES.onetime.price}): ${PACKAGES.onetime.time}`) && help.includes(`${PACKAGES.monthly3.label}: ${PACKAGES.monthly3.time}`) && help.includes(`${PACKAGES.monthly5.label}: ${PACKAGES.monthly5.time}`), "Help: prices and times");
+ok(help.includes(`(+${READY_EXTRAS.rename.price})`) && help.includes(`(+${READY_EXTRAS.protect.price})`), "Help: ready-made extras");
 if (fails) process.exit(1);

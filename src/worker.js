@@ -155,7 +155,7 @@ const userById = (env, id) => env.DB.prepare("SELECT id, email, name FROM users 
 
 // ---- ready-made websites: sites the owner already built, for sale ----
 // Buying starts with a request (an order with package "readymade"); the owner accepts it, then they pay as usual.
-const READY_EXTRAS = {
+export const READY_EXTRAS = {
   rename: { name: "Change the name", price: 5, blurb: "We put your business name on the website instead of ours." },
   protect: { name: "Extra protection", price: 25, blurb: "We add extra security to the website's code so it's much harder to hack or spam: safer forms, stricter security settings and protection against bots." },
 };
