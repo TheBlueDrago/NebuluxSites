@@ -1,6 +1,13 @@
 {
   "name": "nebulux-sites",
   "private": true,
-  "scripts": { "deploy": "wrangler deploy", "dev": "wrangler dev" },
-  "devDependencies": { "wrangler": "4.145.0" }
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "node scripts/test-prices.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.145.0"
+  },
+  "type": "module"
 }
