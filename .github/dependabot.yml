@@ -1,0 +1,8 @@
+# Weekly dependency updates (security fixes arrive as soon as they're published).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
