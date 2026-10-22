@@ -901,7 +901,9 @@ form{margin-top:24px;display:flex;gap:8px}input{flex:1;font:inherit;font-size:16
 </style></head><body><div class="c"><img src="/logo.png" alt="">${body}</div></body></html>`;
 const DOWN = (msg = "", ok = false) => SHELL(REEL + `<h1>We'll be right back</h1><p>Sorry, Nebulux Sites is down for maintenance right now. We're making it even better. Please check back soon!</p>` +
   (ok ? `<p style="margin-top:24px;color:#86efac;font-weight:700">You're on the list! We'll email you when we're back.</p>`
-      : `<p style="margin-top:26px;font-size:16px">Want to know when we're back? Leave your email.</p><form method="POST" action="/notify"><input type="email" name="email" placeholder="you@example.com" required maxlength="120"><button>Notify me</button></form>${msg ? '<p class="e">' + msg + "</p>" : ""}<p style="font-size:13px;margin-top:10px">We'll only use it to tell you when Nebulux Sites opens.</p>`));
+      : `<p style="margin-top:26px;font-size:16px">Want to know when we're back? Leave your email.</p><form method="POST" action="/notify"><input type="email" name="email" placeholder="you@example.com" required maxlength="120"><button>Notify me</button></form>${msg ? '<p class="e">' + msg + "</p>" : ""}<p style="font-size:13px;margin-top:10px">We'll only use it to tell you when Nebulux Sites opens.</p>`) +
+  // Never a dead end: a way to reach us and the legal page, even while the site is down.
+  `<p style="font-size:14px;margin-top:22px">Questions? Email <a href="mailto:support@nebuluxai.com" style="color:#c4b5fd">support@nebuluxai.com</a> · <a href="/legal.html" style="color:#c4b5fd">Terms and privacy</a></p>`);
 const OWNER = (err) => SHELL(`<h1>Owner sign-in</h1><p>Type your admin key to use the site while it's down.</p><form method="POST" action="/owner"><input type="password" name="key" placeholder="Admin key" autofocus required><button>Enter</button></form>${err ? '<p class="e">' + err + "</p>" : ""}`);
 
 // ---- safety on every response ----
@@ -966,11 +968,14 @@ async function handle(req, env, url) {
         return page(OWNER(""));
       }
       // the down page needs its logo; the admin API is still protected by its own key
-      const open = p === "/sitemap.xml" || p === "/robots.txt" || p === "/.well-known/security.txt" || p === "/logo.png" || p === "/nebulux-reel.mp4" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
+      // (the legal page stays readable, so the maintenance page's link to it works)
+      const open = p === "/sitemap.xml" || p === "/robots.txt" || p === "/.well-known/security.txt" || p === "/logo.png" || p === "/nebulux-reel.mp4" || p === "/legal.html" || p === "/legal" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
       if (!open && !(await isOwner(env, req))) {
         if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
-        // Google checking site ownership (Search Console) needs a normal answer, not "down".
-        if (/Google-Site-Verification|Googlebot/i.test(req.headers.get("user-agent") || "")) return page(DOWN(), 200);
+        // Google checking site ownership (Search Console) needs a normal answer, not "down". Its search
+        // crawler (Googlebot) gets the same 503 as everyone: a 200 "noindex" page would teach Google
+        // that the home page shouldn't be in search, and slow its return after launch.
+        if (/Google-Site-Verification/i.test(req.headers.get("user-agent") || "")) return page(DOWN(), 200);
         return page(DOWN(), 503, { "retry-after": "3600" });
       }
     }
