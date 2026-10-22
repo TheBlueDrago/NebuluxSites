@@ -11,6 +11,9 @@ compatibility_date = "2026-09-22"
 # The site is down for everyone but the owner while this is "on" (owner link: /owner). Set to "off" to open it.
 [vars]
 MAINTENANCE = "on"
+# The "I'm not a robot" check's public key (same widget as nebuluxai.com). It's on once the
+# TURNSTILE_SECRET secret is set too (npx wrangler secret put TURNSTILE_SECRET).
+TURNSTILE_SITE_KEY = "0x4AAAAAAFQuudkM-2O4Ucts"
 
 [assets]
 directory = "./public"

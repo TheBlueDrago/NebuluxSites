@@ -197,6 +197,24 @@ async function ensure(db) {
   ready = true;
 }
 
+// The "I'm not a robot" check (Cloudflare Turnstile, the same widget as nebuluxai.com) on the two forms
+// that send emails, sign-up and Forgot password, so bots can't make accounts in bulk or fill inboxes.
+// On once both keys are set: TURNSTILE_SITE_KEY (public, in wrangler.toml) and TURNSTILE_SECRET (a secret).
+const turnstileOn = (env) => !!(env.TURNSTILE_SECRET && env.TURNSTILE_SITE_KEY);
+async function turnstileOk(env, req, token) {
+  if (!turnstileOn(env)) return true;
+  if (!token || typeof token !== "string" || token.length > 2048) return false;
+  try {
+    const form = new FormData();
+    form.append("secret", env.TURNSTILE_SECRET); form.append("response", token);
+    const ip = req.headers.get("cf-connecting-ip"); if (ip) form.append("remoteip", ip);
+    const j = await (await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form })).json();
+    return !!j.success;
+  } catch {
+    return true; // Cloudflare's check itself is down: don't lock everyone out (the rate limits still apply)
+  }
+}
+const ROBOT = { error: "Please finish the \"I'm not a robot\" check and try again.", code: "turnstile" };
 async function sendCode(env, email) {
   if (!env.RESEND_API_KEY) throw Object.assign(new Error("Email isn't set up yet. Please try again later."), { status: 503 });
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
@@ -294,8 +312,11 @@ async function api(req, env, path) {
   }
 
   // ---- accounts ----
+  // the public site key, when the check is on (account.html shows it on sign-up and Forgot password)
+  if (path === "/api/turnstile") return json({ site_key: turnstileOn(env) ? env.TURNSTILE_SITE_KEY : null });
   if (path === "/api/signup" && req.method === "POST") {
     if (!(await allow("signup:" + ip, 10, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
+    if (!(await turnstileOk(env, req, body.turnstile_token))) return json(ROBOT, 400);
     const email = cleanEmail(body.email), pw = String(body.password || ""), name = clip(body.name, 80).trim();
     if (!validEmail(email)) return json({ error: "Enter a real email address." }, 400);
     if (badPw(pw)) return json({ error: badPw(pw) }, 400);
@@ -352,6 +373,7 @@ async function api(req, env, path) {
   if (path === "/api/reset/start" && req.method === "POST") {
     const email = cleanEmail(body.email);
     if (!(await allow("reset:" + ip, 10, 3600)) || !(await allow("reset:" + email, 4, 3600))) return json({ error: "Too many tries. Please wait a while." }, 429);
+    if (!(await turnstileOk(env, req, body.turnstile_token))) return json(ROBOT, 400);
     const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
     if (u) await sendCode(env, email).catch(() => {});
     return json({ ok: true });
@@ -921,7 +943,7 @@ const SAFE = {
   "cross-origin-opener-policy": "same-origin-allow-popups",
 };
 // Only our own scripts, Stripe and Google Fonts can run or load on our pages; nothing can frame them.
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
 function secure(res) {
   const r = new Response(res.body, res);
   for (const [k, v] of Object.entries(SAFE)) if (!r.headers.has(k)) r.headers.set(k, v);

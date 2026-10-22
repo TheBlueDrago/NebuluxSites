@@ -52,6 +52,7 @@
       <label for="email">Email</label><input id="email" type="email" autocomplete="email" required>
       <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required minlength="8">
       <label class="row" style="font-weight:500"><input id="remember" type="checkbox" style="width:auto"> Remember me on this device (skip the code for 30 days)</label>
+      <div id="tsBox" style="display:none;margin-top:12px"></div>
       <button class="btn" style="margin-top:14px;width:100%" id="authBtn">Log in</button>
     </form>
     <p class="muted" style="font-size:13px;margin-top:10px">By continuing, you agree to our <a href="/legal.html#terms" target="_blank">Terms of Service</a>, <a href="/legal.html#agreement" target="_blank">User Agreement</a> and <a href="/legal.html#privacy" target="_blank">Privacy Policy</a>.</p>
@@ -83,6 +84,7 @@
         <label for="rCode">Code from the email</label><input id="rCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
         <label for="rPw">New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="8">
       </div>
+      <div id="rTs" style="margin-top:12px"></div>
       <button class="btn" style="margin-top:14px;width:100%" id="rBtn">Send code</button>
     </form>
     <p class="err" id="rErr"></p>
@@ -163,8 +165,21 @@ const post = (url, body) => fetch(url, { method: "POST", headers: { "content-typ
 let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30, FIRST_ENDS = 0;
 const want = new URLSearchParams(location.search).get("package");
 function show(id) { const b = document.getElementById("boot"); if (b) b.remove(); for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
+// The "I'm not a robot" check on sign-up and Forgot password (when it's switched on; /api/turnstile).
+const TS = { key: undefined, ids: {}, tok: {} };
+async function robot(where) {
+  if (TS.key === undefined) { try { TS.key = (await (await fetch("/api/turnstile")).json()).site_key || null; } catch { TS.key = null; } }
+  if (!TS.key || TS.ids[where] !== undefined) return;
+  const draw = () => { if (TS.ids[where] !== undefined) return; try { TS.ids[where] = window.turnstile.render("#" + where, { sitekey: TS.key, callback: (t) => (TS.tok[where] = t), "expired-callback": () => (TS.tok[where] = ""), "error-callback": () => { TS.tok[where] = ""; } }); } catch {} };
+  if (window.turnstile) return draw();
+  let s = document.getElementById("tsScript");
+  if (!s) { s = document.createElement("script"); s.id = "tsScript"; s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"; s.async = true; document.head.appendChild(s); }
+  s.addEventListener("load", draw);
+}
+function robotReset(where) { TS.tok[where] = ""; try { if (window.turnstile && TS.ids[where] !== undefined) window.turnstile.reset(TS.ids[where]); } catch {} }
 function setMode(m) {
   mode = m; const up = m === "signup";
+  $("tsBox").style.display = up ? "" : "none"; if (up) robot("tsBox");
   $("authTitle").textContent = up ? "Create your account" : "Log in";
   $("authBtn").textContent = up ? "Create account" : "Log in";
   $("nameRow").style.display = up ? "" : "none";
@@ -174,22 +189,22 @@ function setMode(m) {
   $("authErr").textContent = "";
 }
 $("switchMode").onclick = (e) => { e.preventDefault(); setMode("signup"); };
-$("forgot").onclick = (e) => { e.preventDefault(); $("rEmail").value = $("email").value; $("rStep2").style.display = "none"; $("rBtn").textContent = "Send code"; $("rErr").textContent = ""; show("reset"); };
+$("forgot").onclick = (e) => { e.preventDefault(); $("rEmail").value = $("email").value; $("rStep2").style.display = "none"; $("rTs").style.display = ""; $("rBtn").textContent = "Send code"; $("rErr").textContent = ""; show("reset"); robot("rTs"); };
 $("rBack").onclick = (e) => { e.preventDefault(); show("auth"); };
 $("resetForm").onsubmit = async (e) => {
   e.preventDefault(); $("rErr").textContent = ""; $("rBtn").disabled = true;
   const step2 = $("rStep2").style.display !== "none";
-  const r = step2 ? await post("/api/reset/finish", { email: $("rEmail").value, code: $("rCode").value, password: $("rPw").value }) : await post("/api/reset/start", { email: $("rEmail").value });
-  $("rBtn").disabled = false;
+  const r = step2 ? await post("/api/reset/finish", { email: $("rEmail").value, code: $("rCode").value, password: $("rPw").value }) : await post("/api/reset/start", { email: $("rEmail").value, turnstile_token: TS.tok.rTs || "" });
+  $("rBtn").disabled = false; if (!step2) robotReset("rTs");
   if (!r.ok) { $("rErr").textContent = r.error || "Something went wrong."; return; }
   if (step2) return start();
-  $("rStep2").style.display = ""; $("rBtn").textContent = "Set new password"; $("resetSub").textContent = "If there's an account for that email, we sent it a code. It works for 10 minutes."; $("rCode").focus();
+  $("rStep2").style.display = ""; $("rTs").style.display = "none"; $("rBtn").textContent = "Set new password"; $("resetSub").textContent = "If there's an account for that email, we sent it a code. It works for 10 minutes."; $("rCode").focus();
 };
 $("authForm").onsubmit = async (e) => {
   e.preventDefault(); $("authErr").textContent = ""; $("authBtn").disabled = true;
-  const body = { email: $("email").value, password: $("password").value, name: $("name").value, remember: $("remember").checked };
+  const body = { email: $("email").value, password: $("password").value, name: $("name").value, remember: $("remember").checked, ...(mode === "signup" ? { turnstile_token: TS.tok.tsBox || "" } : {}) };
   const r = await post(mode === "signup" ? "/api/signup" : "/api/login", body);
-  $("authBtn").disabled = false;
+  $("authBtn").disabled = false; if (mode === "signup") robotReset("tsBox");
   if (r.needCode) { $("codeEmail").textContent = body.email; show("code"); $("codeIn").focus(); return; }
   if (r.ok) return start();
   $("authErr").textContent = r.error || "Something went wrong.";
