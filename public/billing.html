@@ -27,9 +27,9 @@ const buy = new URLSearchParams(location.search).get("buy") || "";
 const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
 const money = (n) => "$" + Number(n || 0).toFixed(2).replace(/\.00$/, "");
 function done(r) {
-  if (r.update) { $("card").innerHTML = `<div class="done"><div class="big">🛠️</div><h2 style="margin:6px 0">Update paid!</h2><p class="muted">Thanks! We're working on your update and will email you when it's done.</p><a class="btn" style="margin-top:18px" href="/account.html#mon">Back to Monitor</a></div>`; return; }
-  if (r.messages) { $("card").innerHTML = `<div class="done"><div class="big">💬</div><h2 style="margin:6px 0">${r.messages} more messages added!</h2><p class="muted">Go back to your order to keep chatting with us.</p><a class="btn" style="margin-top:18px" href="/account.html#dash">Back to my dashboard</a></div>`; return; }
-  $("card").innerHTML = `<div class="done"><div class="big">🎉</div><h2 style="margin:6px 0">Payment received!</h2><p class="muted">${r.status === "building" ? "Thank you! We're starting on your website now. Watch it come together on your account page." : r.left > 0 ? `Thank you! ${money(r.left)} is left to pay.` : "Thank you! Your website is fully paid. Download it from your account page."}</p><a class="btn" style="margin-top:18px" href="/account.html">Go to my account</a></div>`;
+  if (r.update) { $("card").innerHTML = `<div class="done"><div class="big"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z'/></svg></div><h2 style="margin:6px 0">Update paid!</h2><p class="muted">Thanks! We're working on your update and will email you when it's done.</p><a class="btn" style="margin-top:18px" href="/account.html#mon">Back to Monitor</a></div>`; return; }
+  if (r.messages) { $("card").innerHTML = `<div class="done"><div class="big"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M21 12a8 8 0 0 1-11.6 7.1L4 20l.9-4.6A8 8 0 1 1 21 12z'/></svg></div><h2 style="margin:6px 0">${r.messages} more messages added!</h2><p class="muted">Go back to your order to keep chatting with us.</p><a class="btn" style="margin-top:18px" href="/account.html#dash">Back to my dashboard</a></div>`; return; }
+  $("card").innerHTML = `<div class="done"><div class="big"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><circle cx='12' cy='12' r='9'/><path d='m8 12.5 2.7 2.7L16 9.6'/></svg></div><h2 style="margin:6px 0">Payment received!</h2><p class="muted">${r.status === "building" ? "Thank you! We're starting on your website now. Watch it come together on your account page." : r.left > 0 ? `Thank you! ${money(r.left)} is left to pay.` : "Thank you! Your website is fully paid. Download it from your account page."}</p><a class="btn" style="margin-top:18px" href="/account.html">Go to my account</a></div>`;
 }
 async function start() {
   // No order picked (the Billing button on the dashboard): an overview of every order.
@@ -70,7 +70,7 @@ async function start() {
       <label class="flab">Billing address</label><div id="addrEl" class="fbox"></div>
       <button class="btn paybtn" id="payB" disabled>Pay ${money(r.amount)}</button>
     </form><p class="err" id="err"></p>
-    <div class="secure">🔒 Encrypted card payment. Your card details go straight to our secure payment processor, never to our servers.</div>`;
+    <div class="secure">Encrypted card payment. Your card details go straight to our secure payment processor, never to our servers.</div>`;
   if ($("promoF")) $("promoF").onsubmit = async (e) => {
     e.preventDefault();
     const c = await post("/api/promo", { id, code: $("promoIn").value });

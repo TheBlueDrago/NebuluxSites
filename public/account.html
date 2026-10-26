@@ -115,7 +115,7 @@
         <div id="orders" class="muted">No websites yet.</div>
       </div>
       <div id="v-prev" style="display:none">
-        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing. Scroll and click around inside it.</p></div><div class="row"><div class="seg" id="pdev" role="group" aria-label="Preview size"><button type="button" data-d="pc" class="on">🖥 Computer</button><button type="button" data-d="phone">📱 Phone</button></div><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
+        <div class="row" style="justify-content:space-between"><div><h2 class="dh">Preview</h2><p class="muted dsub">Your website as it is right now, like the real thing. Scroll and click around inside it.</p></div><div class="row"><div class="seg" id="pdev" role="group" aria-label="Preview size"><button type="button" data-d="pc" class="on">Computer</button><button type="button" data-d="phone">Phone</button></div><select id="psel" style="width:auto"></select><a class="btn ghost" id="pfull" target="_blank" rel="noopener noreferrer">Open full screen ↗</a></div></div>
         <div id="pview"></div>
       </div>
       <div id="v-mon" style="display:none">
@@ -133,7 +133,7 @@
         <div class="box wide" id="reqBox" style="margin:0">
       <h2 style="margin:0 0 6px;text-align:left">Order a website</h2>
       <p class="muted">Tell us what you want. Send your request for free. If we accept it, you pay $5 to continue (it comes off your price), and the rest when your website is finished. You get your website as a ZIP file with instructions. You set up your own domain, hosting, and a payment provider (like Stripe or PayPal) if your website takes payments; we show you how.</p>
-      <a class="readytip" href="#ready" onclick="view('ready');return false">⚡ <b>Want it faster?</b> Buy a website we already made → <span>Ready-made websites</span></a>
+      <a class="readytip" href="#ready" onclick="view('ready');return false"><b>Want it faster?</b> Buy a website we already made → <span>Ready-made websites</span></a>
       <form id="orderForm">
         <label>Package</label><div class="pk" id="pk"></div>
         <label>Add-ons <span class="muted" style="font-weight:500">(optional)</span></label><div class="addons" id="addons"></div>
@@ -145,7 +145,7 @@
         <div class="row"><div style="flex:1;min-width:200px"><label for="deadline">When do you need it?</label><input id="deadline" type="date"></div><div style="flex:2;min-width:240px"><label for="links">Links (your logo, photos, sites you like)</label><input id="links" placeholder="https://…"></div></div>
         <label for="photoPick">Photos for your website <span class="muted" style="font-weight:500">(optional)</span></label>
         <div class="photodrop" id="photoDrop">
-          <p><b>📷 Upload your images</b><span class="muted">Your logo, your products, your place, your team… anything you want on your website. Up to 20.</span></p>
+          <p><b>Upload your images</b><span class="muted">Your logo, your products, your place, your team… anything you want on your website. Up to 20.</span></p>
           <label class="btn ghost" for="photoPick">Choose photos</label><input id="photoPick" type="file" accept="image/*" multiple hidden>
           <div class="pgrid" id="photoNew"></div>
         </div>
@@ -232,11 +232,11 @@ function orderCard(o) {
     ${o.status === "cancelled" ? `<div class="declined">${(o.paid_total || 0) > 0 ? `<b>This order was cancelled.</b><p class="muted">Sorry, we had to cancel it. We'll refund what you paid. You can send a new request any time.</p>` : `<b>This request was declined.</b><p class="muted">Sorry, we couldn't take this one on. You weren't charged. You can send a new request any time.</p>`}<button class="btn ghost" onclick="removeOrder('${esc(o.id)}')">Remove</button></div>` : `<div class="steps">`}${o.status === "cancelled" ? "" : `${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${o.status === "building" && PKG[o.package] && PKG[o.package].time ? " · usually ready in " + esc(PKG[o.package].time) : ""}${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview →</a>` : ""}</p>`}
     ${pay}
-    ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>🎉 Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
-    ${o.zip_url ? `<div class="zipdone"><b>🎉 Your website is ready!</b><p class="muted">Download the ZIP file, then put it online one of these ways:</p><ul class="muted" style="text-align:left;margin:6px 0 10px 18px"><li><b>Recommended: Nebulux AI (free, no pricing).</b> Go to <a href="https://nebuluxai.com" target="_blank" rel="noopener">nebuluxai.com</a> and log in (or make a free account). Open <b>Website Designer</b>, press <b>New website</b>, choose <b>Upload ZIP</b> and pick this ZIP file. Your website goes live right away, and you can connect your own domain there. Best for one-page websites: it uses the main page only.</li><li><b>Cloudflare Pages</b> (free, and keeps every page): in Cloudflare, go to Workers &amp; Pages, then Create, then Pages, then Upload assets, and drop in your files.</li><li><b>Any other host or website builder</b>: upload the ZIP there, or ask its AI to upload it for you.</li></ul><p class="muted">Then connect your domain. Email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">⬇ Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
-    ${o.status === "complete" ? `<details class="msgs rev"><summary>⭐ Leave a review</summary><form class="revform" onsubmit="sendReview(event, '${esc(o.id)}')"><div class="stars" data-v="5">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="on">★</button>`).join("")}</div><textarea maxlength="600" required placeholder="How was it working with us? What do you think of your website?"></textarea><button class="btn">Send review</button><p class="muted" style="font-size:13px">We may show it on our homepage with your first name.</p></form></details>` : ""}
+    ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
+    ${o.zip_url ? `<div class="zipdone"><b>Your website is ready!</b><p class="muted">Download the ZIP file, then put it online one of these ways:</p><ul class="muted" style="text-align:left;margin:6px 0 10px 18px"><li><b>Recommended: Nebulux AI (free, no pricing).</b> Go to <a href="https://nebuluxai.com" target="_blank" rel="noopener">nebuluxai.com</a> and log in (or make a free account). Open <b>Website Designer</b>, press <b>New website</b>, choose <b>Upload ZIP</b> and pick this ZIP file. Your website goes live right away, and you can connect your own domain there. Best for one-page websites: it uses the main page only.</li><li><b>Cloudflare Pages</b> (free, and keeps every page): in Cloudflare, go to Workers &amp; Pages, then Create, then Pages, then Upload assets, and drop in your files.</li><li><b>Any other host or website builder</b>: upload the ZIP there, or ask its AI to upload it for you.</li></ul><p class="muted">Then connect your domain. Email us if you get stuck.</p><a class="btn" href="${esc(o.zip_url)}" target="_blank" rel="noopener noreferrer">Download your website (ZIP)</a> <button class="btn ghost" onclick="removeDone('${esc(o.id)}')">Remove from my dashboard</button></div>` : ""}
+    ${o.status === "complete" ? `<details class="msgs rev"><summary>Leave a review</summary><form class="revform" onsubmit="sendReview(event, '${esc(o.id)}')"><div class="stars" data-v="5">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" class="on">★</button>`).join("")}</div><textarea maxlength="600" required placeholder="How was it working with us? What do you think of your website?"></textarea><button class="btn">Send review</button><p class="muted" style="font-size:13px">We may show it on our homepage with your first name.</p></form></details>` : ""}
     ${o.status === "cancelled" ? "" : `<details class="msgs" data-mid="${esc(o.id)}"><summary>Messages with us${newMsgs(o) ? `<span class="newdot">${newMsgs(o)} new</span>` : ""}</summary><div class="mlog" id="ml-${esc(o.id)}"><p class="muted">Loading…</p></div><p class="muted mnote" id="mn-${esc(o.id)}"></p><form class="mform" onsubmit="sendMsg(event, '${esc(o.id)}')"><input placeholder="Ask a question or request a change…" maxlength="2000" required><button class="btn">Send</button></form></details>`}
-    ${o.status === "cancelled" ? "" : `<details class="msgs photos" data-pid="${esc(o.id)}" ontoggle="if(this.open)loadPhotos('${esc(o.id)}')"><summary>📷 Your photos${o.photos ? ` <span class="muted">(${o.photos})</span>` : ""}</summary><div class="pgrid" id="pg-${esc(o.id)}"><p class="muted">Loading…</p></div>${o.status === "complete" ? "" : `<label class="btn ghost" style="margin-top:10px">Add photos<input type="file" accept="image/*" multiple hidden onchange="addPhotos('${esc(o.id)}', this)"></label><p class="muted" style="font-size:13px;margin-top:6px">Your logo, products, place or team: anything you want on your website.</p>`}</details>`}
+    ${o.status === "cancelled" ? "" : `<details class="msgs photos" data-pid="${esc(o.id)}" ontoggle="if(this.open)loadPhotos('${esc(o.id)}')"><summary>Your photos${o.photos ? ` <span class="muted">(${o.photos})</span>` : ""}</summary><div class="pgrid" id="pg-${esc(o.id)}"><p class="muted">Loading…</p></div>${o.status === "complete" ? "" : `<label class="btn ghost" style="margin-top:10px">Add photos<input type="file" accept="image/*" multiple hidden onchange="addPhotos('${esc(o.id)}', this)"></label><p class="muted" style="font-size:13px;margin-top:6px">Your logo, products, place or team: anything you want on your website.</p>`}</details>`}
     ${ups.length ? `<h4>Updates</h4><ul class="tl">${ups.map((u) => `<li><span class="muted">${new Date(u.at).toLocaleString()}</span><br>${esc(u.text)}</li>`).join("")}</ul>` : ""}
   </div>`;
 }
@@ -283,7 +283,7 @@ $("readyBody").addEventListener("click", async (e) => {
   const r = await post("/api/ready/request", { id: card.dataset.id, extras: [...card.querySelectorAll("[data-x]:checked")].map((c) => c.dataset.x), name: card.querySelector(".rname").value, note: card.querySelector(".rmore").value });
   b.disabled = false; b.textContent = label;
   if (!r.ok) { msg.className = "rmsg err"; msg.textContent = r.error || "Something went wrong."; return; }
-  toast(`🎉 Request ${r.id} sent! We'll email you when we accept it.`);
+  toast(`Request ${r.id} sent! We'll email you when we accept it.`);
   await loadOrders(); view("dash");
 });
 function drawPreview() {
@@ -304,7 +304,7 @@ function drawPreview() {
 function drawRequest() {
   const busy = ORDERS.find(ACTIVE);
   $("reqBlocked").style.display = busy ? "" : "none"; $("reqBox").style.display = busy ? "none" : "";
-  if (busy) $("reqBlocked").innerHTML = `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">🛠️</div><h2 style="margin:6px 0">You already have a website in the works</h2><p class="muted">${esc(busy.kind || busy.id)} is <b>${esc(busy.status)}</b>. You can request another website when it's finished.</p><button class="btn" style="margin-top:14px" onclick="view('dash')">Go to my dashboard</button></div>`;
+  if (busy) $("reqBlocked").innerHTML = `<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z'/></svg></div><h2 style="margin:6px 0">You already have a website in the works</h2><p class="muted">${esc(busy.kind || busy.id)} is <b>${esc(busy.status)}</b>. You can request another website when it's finished.</p><button class="btn" style="margin-top:14px" onclick="view('dash')">Go to my dashboard</button></div>`;
 }
 async function removeDone(id) { if (!confirm("Remove this finished website from your dashboard? Download your ZIP first: you won't be able to get it here after.")) return; await post("/api/order/remove", { id }); loadOrders(); }
 $("acctX").onclick = () => ($("acctModal").style.display = "none");
@@ -353,12 +353,12 @@ async function sendReview(e, id) {
   e.preventDefault(); const f = e.target; const b = f.querySelector("button.btn"); if (b.disabled) return; b.disabled = true;
   const r = await post("/api/review", { id, stars: f.querySelector(".stars").dataset.v, text: f.querySelector("textarea").value }); b.disabled = false;
   if (!r.ok) return alert(r.error || "Couldn't send that.");
-  f.innerHTML = '<p class="ok">Thank you for your review! 💜</p>';
+  f.innerHTML = '<p class="ok">Thank you for your review!</p>';
 }
 // ---- Monitor tab ----
 async function drawMonitor() {
   const done = ORDERS.filter((o) => o.status === "complete");
-  if (!done.length) { $("monBody").innerHTML = '<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px">📡</div><h2 style="margin:6px 0">Nothing to monitor yet</h2><p class="muted">Once your website is finished and online, you can watch it here and ask us for updates.</p></div>'; return; }
+  if (!done.length) { $("monBody").innerHTML = '<div class="box wide" style="margin:0;text-align:center"><div style="font-size:44px"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M12 13v8M8.5 9.5a5 5 0 0 1 7 0M5.6 6.6a9 9 0 0 1 12.8 0'/><circle cx='12' cy='12.5' r='1.2'/></svg></div><h2 style="margin:6px 0">Nothing to monitor yet</h2><p class="muted">Once your website is finished and online, you can watch it here and ask us for updates.</p></div>'; return; }
   $("monBody").innerHTML = done.map((o) => `<div class="order" id="mon-${esc(o.id)}"><div class="order-top"><div><span class="muted">${esc(o.id)}</span><h3>${esc(o.kind || "Your website")}</h3></div></div><p class="muted">Checking…</p></div>`).join("");
   for (const o of done) monOne(o.id);
 }
@@ -369,7 +369,7 @@ async function monOne(id) {
   const STAT = { asked: ["Waiting for our price", ""], quoted: ["Ready to pay", "t-awaiting-payment"], paid: ["We're working on it", "t-building"], done: ["Done", "t-done"], declined: ["Declined", "t-cancelled"] };
   box.innerHTML = `<div class="order-top"><div><span class="muted">${esc(id)}</span><h3>${esc(o.kind || "Your website")}</h3></div>${c ? `<span class="tag ${c.up ? "t-done" : "t-cancelled"}">${c.up ? "● Online" : "● Offline"}</span>` : ""}</div>
     ${r.live_url ? `<p class="muted">Your website: <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">${esc(r.live_url.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></p>` : ""}
-    ${c ? `<div class="tiles" style="margin-top:16px"><div class="tile"><small>Status</small><b>${c.up ? "Online" : "Offline"}</b><span>${c.code ? "Answer " + c.code : "No answer"}</span></div><div class="tile"><small>Speed</small><b>${(c.ms / 1000).toFixed(1)}s</b><span>${c.ms < 800 ? "Fast" : c.ms < 2000 ? "OK" : "Slow"}</span></div><div class="tile"><small>Secure</small><b>${c.https ? "Yes" : "No"}</b><span>${c.https ? "Uses https 🔒" : "Turn on https at your host"}</span></div></div>${c.title ? `<p class="muted">Page title: ${esc(c.title)}</p>` : ""}<p class="muted" style="font-size:13px">Checked ${new Date(r.at).toLocaleString()} · <a href="#" onclick="event.preventDefault(); monOne('${esc(id)}')">Check again</a> · <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">Visit ↗</a></p>` : r.live_url ? "" : '<p class="muted">We\'re connecting your website. It will show up here soon.</p>'}
+    ${c ? `<div class="tiles" style="margin-top:16px"><div class="tile"><small>Status</small><b>${c.up ? "Online" : "Offline"}</b><span>${c.code ? "Answer " + c.code : "No answer"}</span></div><div class="tile"><small>Speed</small><b>${(c.ms / 1000).toFixed(1)}s</b><span>${c.ms < 800 ? "Fast" : c.ms < 2000 ? "OK" : "Slow"}</span></div><div class="tile"><small>Secure</small><b>${c.https ? "Yes" : "No"}</b><span>${c.https ? "Uses https" : "Turn on https at your host"}</span></div></div>${c.title ? `<p class="muted">Page title: ${esc(c.title)}</p>` : ""}<p class="muted" style="font-size:13px">Checked ${new Date(r.at).toLocaleString()} · <a href="#" onclick="event.preventDefault(); monOne('${esc(id)}')">Check again</a> · <a href="${esc(r.live_url)}" target="_blank" rel="noopener noreferrer">Visit ↗</a></p>` : r.live_url ? "" : '<p class="muted">We\'re connecting your website. It will show up here soon.</p>'}
     <h4>Need an update?</h4>
     <p class="muted" style="font-size:14px">Tell us what you'd like changed. We'll reply with a price (small things can be free), and you pay before we start.</p>
     <form class="upform" onsubmit="sendUpgrade(event, '${esc(id)}')"><textarea maxlength="2000" required placeholder="e.g. Add a new cookie flavor to the menu and change the opening hours"></textarea><button class="btn">Send request</button></form>
@@ -390,7 +390,7 @@ async function loadOrders() {
   const act = list.find(ACTIVE), paidAll = list.reduce((n, o) => n + (o.paid_total || 0), 0);
   const done = !act && list.find((o) => o.status === "complete");
   const nextStep = done ? (done.zip_url ? "Put it online" : "ZIP on its way") : !act ? "Request a website" : { "in review": "We're reviewing it", "awaiting deposit": "Pay your $5 fee", building: "We're building it", "awaiting payment": "Pay the rest" }[act.status] || act.status;
-  const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : done ? 100 : 0}%</b><span>${act ? esc(act.kind || act.id) : done ? "🎉 " + esc(done.kind || "Your website") + " is finished" : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : done ? (done.zip_url ? "Download it below" : "We'll email you") : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
+  const tiles = list.length ? `<div class="tiles"><div class="tile"><small>Progress</small><b>${act ? (["awaiting payment", "complete"].includes(act.status) ? 100 : act.progress || 0) : done ? 100 : 0}%</b><span>${act ? esc(act.kind || act.id) : done ? esc(done.kind || "Your website") + " is finished" : "No website in the works"}</span></div><div class="tile"><small>Next step</small><b style="font-size:22px;padding:6px 0">${esc(nextStep)}</b><span>${act ? "Order " + esc(act.id) : done ? (done.zip_url ? "Download it below" : "We'll email you") : "It's free to send"}</span></div><div class="tile"><small>Paid so far</small><b>$${paidAll.toFixed(0)}</b><span>${list.length} website${list.length > 1 ? "s" : ""}</span></div></div>` : "";
   $("orders").innerHTML = list.length ? tiles + list.map(orderCard).join("") : `<div class="dempty"><div class="dorb"></div><h2>Let&rsquo;s build your website</h2><p class="muted">Tell us what you want. Sending a request is free, and we reply fast.</p><div class="dhow"><div><i>1</i><b>Request</b><span>Describe it, for free</span></div><div><i>2</i><b>$5 to start</b><span>Comes off your price</span></div><div><i>3</i><b>Watch it grow</b><span>Live preview here</span></div><div><i>4</i><b>Get it</b><span>Your ZIP, ready to go live</span></div></div><button class="btn" style="margin-top:20px" onclick="view('req')">Request a website →</button></div>`;
   $("dhNew").style.display = act ? "none" : "";
   { const n = list.reduce((t, o) => t + newMsgs(o), 0); document.title = (n ? "(" + n + ") " : "") + "Your account · Nebulux Sites"; }
@@ -406,7 +406,7 @@ $("orderForm").onsubmit = async (e) => {
   if (!r.ok) { $("orderErr").textContent = r.error || "Something went wrong."; return; }
   try { localStorage.removeItem("ns-draft"); } catch {}
   if (NEWPHOTOS.length) { btn.disabled = true; btn.textContent = "Uploading photos…"; const bad = await uploadPhotos(r.id, NEWPHOTOS.splice(0)); btn.disabled = false; btn.textContent = label; drawNewPhotos(); if (bad) toast(`${bad} photo${bad > 1 ? "s" : ""} couldn't upload. You can add them on your order.`); }
-  toast(`🎉 Request ${r.id} sent! We'll email you as soon as we accept it.`);
+  toast(`Request ${r.id} sent! We'll email you as soon as we accept it.`);
   $("orderForm").reset(); await loadOrders(); view("dash");
 };
 // ---- photos: shrunk here first (max 1600px), then uploaded one at a time ----
@@ -453,7 +453,7 @@ async function addPhotos(id, input) {
   const files = [...input.files]; input.value = ""; let n = 0;
   toast("Uploading " + files.length + " photo" + (files.length > 1 ? "s" : "") + "…");
   for (const f of files) { const p = await shrink(f); if (!p) continue; const r = await post("/api/photos/add", { order: id, type: p.type, data: await b64(p.blob) }); if (r.ok) n++; else if (r.error) { toast(r.error); break; } }
-  if (n) toast(`📷 Added ${n} photo${n > 1 ? "s" : ""}.`);
+  if (n) toast(`Added ${n} photo${n > 1 ? "s" : ""}.`);
   loadPhotos(id);
 }
 async function removePhoto(id, pid) { await post("/api/photos/remove", { order: id, id: pid }); loadPhotos(id); }
@@ -464,14 +464,14 @@ function toast(msg) {
 // The order form keeps what they typed (on this device) until it's sent.
 // Quick picks: one tap fills in the kind of website and, if the description is empty, a starting outline to edit.
 const KINDS = [
-  ["🧁", "Bakery or café", "Pages: Home, Menu, About, Contact.\nOn the home page: our best items with photos, opening hours, and an Order button.\nStyle: warm and cozy.\nAbout us: "],
-  ["🍽️", "Restaurant", "Pages: Home, Menu, Book a table, Contact.\nShow our menu with prices, opening hours and a map.\nStyle: \nAbout us: "],
-  ["🛍️", "Online shop", "What we sell: \nAbout how many products: \nPages: Home, Shop, About, Contact.\nStyle: "],
-  ["📸", "Portfolio", "What I do: \nShow my best work in a gallery, a short About me, and a contact form.\nStyle: clean and simple."],
-  ["💈", "Barber or salon", "Pages: Home, Services and prices, Book an appointment, Contact.\nShow photos of our work and opening hours.\nStyle: "],
-  ["⚽", "Club or team", "Pages: Home, Schedule, Team, Join us, Contact.\nShow upcoming games or events and photos.\nColors: "],
-  ["🚀", "Startup or app", "What our product does: \nPages: Home with a big headline, Features, Pricing, Sign up.\nStyle: modern."],
-  ["🛠️", "Local service", "Our service (plumbing, cleaning, tutoring...): \nPages: Home, Services, Reviews, Get a quote.\nArea we serve: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M4 21h16M5 21v-7h14v7M8 14v-3M12 14v-3M16 14v-3M8 8c-.6-.8-.6-1.7 0-2.6M12 8c-.6-.8-.6-1.7 0-2.6M16 8c-.6-.8-.6-1.7 0-2.6'/></svg>", "Bakery or café", "Pages: Home, Menu, About, Contact.\nOn the home page: our best items with photos, opening hours, and an Order button.\nStyle: warm and cozy.\nAbout us: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M5 3v5a2 2 0 0 0 4 0V3M7 3v18M17 3c-2 1.5-3 4-3 7h3v11'/></svg>", "Restaurant", "Pages: Home, Menu, Book a table, Contact.\nShow our menu with prices, opening hours and a map.\nStyle: \nAbout us: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2'/></svg>", "Online shop", "What we sell: \nAbout how many products: \nPages: Home, Shop, About, Contact.\nStyle: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M4 8h3l2-3h6l2 3h3v11H4z'/><circle cx='12' cy='13' r='3.5'/></svg>", "Portfolio", "What I do: \nShow my best work in a gallery, a short About me, and a contact form.\nStyle: clean and simple."],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><circle cx='6' cy='6' r='2.5'/><circle cx='6' cy='18' r='2.5'/><path d='M8 7.5 20 18M8 16.5 20 6'/></svg>", "Barber or salon", "Pages: Home, Services and prices, Book an appointment, Contact.\nShow photos of our work and opening hours.\nStyle: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><circle cx='12' cy='12' r='9'/><path d='m12 7.5 3.8 2.8-1.4 4.5H9.6l-1.4-4.5z'/></svg>", "Club or team", "Pages: Home, Schedule, Team, Join us, Contact.\nShow upcoming games or events and photos.\nColors: "],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M5 15c-1.5 1.5-2 4-2 6 2 0 4.5-.5 6-2M9 15l-3-3c1.5-4 5-8 13-9-1 8-5 11.5-9 13z'/><circle cx='15' cy='9' r='1.5'/></svg>", "Startup or app", "What our product does: \nPages: Home with a big headline, Features, Pricing, Sign up.\nStyle: modern."],
+  ["<svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z'/></svg>", "Local service", "Our service (plumbing, cleaning, tutoring...): \nPages: Home, Services, Reviews, Get a quote.\nArea we serve: "],
 ];
 $("kinds").innerHTML = KINDS.map(([e, k], i) => `<button type="button" data-kind="${i}"><span>${e}</span>${k}</button>`).join("");
 $("kinds").onclick = (e) => {
@@ -509,7 +509,7 @@ async function start() {
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
   document.body.appendChild($("acctModal")); // fixed popups size to the screen, not to the page layout
   $("dme").onclick = () => { $("acctWho").textContent = "Signed in as " + user.email; $("acctErr").textContent = ""; $("acctModal").style.display = "flex"; };
-  { const h = new Date().getHours(); $("dhi").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; $("dhName").textContent = "Hi, " + String(user.name || "there").split(" ")[0] + " 👋"; }
+  { const h = new Date().getHours(); $("dhi").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; $("dhName").textContent = "Hi, " + String(user.name || "there").split(" ")[0]; }
   $("dme").innerHTML = `<span class="av">${esc((user.name || "?").slice(0, 1).toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.email || "")}</small></div>`;
   $("acctOut").onclick = async () => { try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
   $("out").onclick = async (e) => { e.preventDefault(); try { localStorage.removeItem("ns-draft"); } catch {} await post("/api/logout"); location.reload(); };
@@ -522,7 +522,7 @@ async function start() {
     const pk = document.querySelector('input[name="pkg"]:checked'), p = pk ? PKG[pk.value] : null; if (!p) return;
     const extra = [...document.querySelectorAll('input[name="addon"]:checked')].reduce((n, x) => n + ADDONS[x.value].price, 0);
     const off = FIRST ? Math.round(p.price * FIRST_OFF / 100) : 0;
-    $("total").innerHTML = `${off ? `<span class="firstoff">🎉 New account deal: ${FIRST_OFF}% off your plan (−$${off}) · ends in ${Math.max(1, Math.round((FIRST_ENDS - Date.now()) / 3600000))} hours</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
+    $("total").innerHTML = `${off ? `<span class="firstoff">New account deal: ${FIRST_OFF}% off your plan (−$${off}) · ends in ${Math.max(1, Math.round((FIRST_ENDS - Date.now()) / 3600000))} hours</span><br>` : ""}Total: <b>$${p.price - off + extra}</b> <span class="muted">(${off ? `<s>$${p.price}</s> $${p.price - off}` : `$${p.price}`} website${extra ? ` + $${extra} add-ons` : ""})</span><br><span class="muted">Free to send. You pay $5 when we accept, and the rest when it's done.</span>`;
   };
   $("orderForm").addEventListener("change", window.sumUp); window.sumUp();
   show("app"); await loadOrders(); setInterval(() => loadOrders().catch(() => {}), 60000);

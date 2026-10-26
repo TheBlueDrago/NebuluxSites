@@ -66,7 +66,7 @@ document.addEventListener("click", async (e) => {
   b.disabled = false; b.textContent = label;
   if (r.login) { msg.className = "rmsg err"; msg.innerHTML = 'Please <a href="/account.html" style="text-decoration:underline">log in or make a free account</a> first, then come back here.'; return; }
   if (r.error) { msg.className = "rmsg err"; msg.textContent = r.error; return; }
-  msg.className = "rmsg ok"; msg.innerHTML = `🎉 Request ${esc(r.id)} sent! We'll email you when we accept it. <a href="/account.html" style="text-decoration:underline">See it in your account</a>.`;
+  msg.className = "rmsg ok"; msg.innerHTML = `Request ${esc(r.id)} sent! We'll email you when we accept it. <a href="/account.html" style="text-decoration:underline">See it in your account</a>.`;
   b.textContent = "Requested ✓"; b.disabled = true;
 });
 load();
