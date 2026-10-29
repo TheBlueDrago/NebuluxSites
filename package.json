@@ -7,7 +7,7 @@
     "test": "node scripts/test-prices.mjs && node scripts/test-turnstile.mjs"
   },
   "devDependencies": {
-    "wrangler": "4.151.3"
+    "wrangler": "4.152.0"
   },
   "type": "module"
 }
