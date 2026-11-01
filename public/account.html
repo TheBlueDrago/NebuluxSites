@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#05040f">
 <title>Your account · Nebulux Sites</title>
+<meta name="description" content="Log in or sign up for Nebulux Sites: order a website, watch it being built with a live preview, and download it when it's done.">
 <link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lux.css">
 <style>
-.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px;max-width:1150px;margin:0 auto 60px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:22px;max-width:1150px;margin:0 auto 60px}
 .rcard{border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column}
 .rshot{aspect-ratio:16/10;overflow:hidden;background:#110d26;position:relative}.rshot img{width:100%;height:auto;display:block;transition:transform 4s ease}.rcard:hover .rshot img{transform:translateY(calc(-100% + 220px))}
 .rbody{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1}.rbody h3{margin:0;font-size:22px}.rbody p{margin:0;color:#b9b2df;font-size:15px;line-height:1.5}
@@ -20,7 +21,7 @@
 .rbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:6px}.rbtns .btn{flex:1;text-align:center;justify-content:center}
 .rmsg{font-size:14px;margin:0}.rmsg.err{color:#fca5a5}.rmsg.ok{color:#86efac}
 .rnote{text-align:center;color:#a9a3cf;font-size:14px;max-width:640px;margin:-30px auto 40px}.rnote b{color:#e9d5ff}
-#v-ready .rgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin:0 0 14px;max-width:none}
+#v-ready .rgrid{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));margin:0 0 14px;max-width:none}
 #v-ready .every{justify-content:flex-start;margin:0 0 16px}
 .dside .sm{display:none}@media (max-width:900px){.dside .lg{display:none}.dside .sm{display:inline}}
 .readytip{display:block;margin:0 0 16px;padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(192,38,211,.12));border:1px solid rgba(192,132,252,.3);font-size:15px}.readytip span{text-decoration:underline}

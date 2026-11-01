@@ -10,7 +10,7 @@
 .side b{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:4px 8px 6px}
 .side a{text-decoration:none;color:var(--muted);padding:9px 12px;border-radius:10px;font-weight:600;transition:.2s}.side a:hover,.side a.on{background:var(--card2);color:var(--text)}
 .lhero{text-align:center;padding:8vh 0 5vh}.lhero h1{font-size:clamp(36px,5vw,58px);font-weight:900;letter-spacing:-.03em}.lhero p{color:var(--muted);margin-top:10px}
-.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:28px}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:12px;margin-bottom:28px}
 .sum div{padding:16px;border-radius:16px;background:var(--card);border:1px solid var(--line)}.sum i{font-style:normal;font-size:22px}.sum b{display:block;margin:6px 0 2px}.sum span{color:var(--muted);font-size:14px}
 .doc{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:clamp(22px,4vw,40px);margin-bottom:24px;scroll-margin-top:90px}
 .doc>h2{text-align:left;font-size:30px;margin:0 0 6px;display:flex;align-items:center;gap:12px}
@@ -105,7 +105,7 @@
 </section>
   </div></div>
 </main>
-<footer style="text-align:center;margin-top:40px">© Nebulux Sites · <a href="/">Home</a></footer>
+<footer style="text-align:center;margin-top:40px">© Nebulux Sites · <a href="/" style="display:inline-block;padding:10px 4px">Home</a></footer>
 <script>
 const links=[...document.querySelectorAll(".side a")];
 const io=new IntersectionObserver((es)=>es.forEach((e)=>{if(e.isIntersecting)links.forEach((l)=>l.classList.toggle("on",l.getAttribute("href")==="#"+e.target.id));}),{rootMargin:"-40% 0px -55% 0px"});
