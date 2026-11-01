@@ -56,10 +56,23 @@ function mailHtml(subject, text) {
 <p style="margin:18px 4px 0;color:#8b84b8;font-size:12px">You're getting this because of your Nebulux Sites account. <a href="${SITE}/legal.html#privacy" style="color:#c4b5fd">Privacy</a></p>
 </div></div>`;
 }
+// Resend's free plan sends 100 emails a day and 2 a second. "Too many at once" (a payment sends three emails in a
+// row) gets one more try a moment later. Returns "ok", "full" (the day's or month's emails are used up) or "failed".
+async function resend(env, payload) {
+  for (let i = 0; i < 2; i++) {
+    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", ...payload }) }).catch(() => null);
+    if (r && r.ok) return "ok";
+    if (!r || r.status !== 429) return "failed";
+    const e = await r.json().catch(() => ({}));
+    if (/quota/i.test(String((e && e.name) || "") + " " + String((e && e.message) || ""))) return "full";
+    await new Promise((res) => setTimeout(res, 1100));
+  }
+  return "failed";
+}
 async function mail(env, to, subject, text) {
   if (!env.RESEND_API_KEY || !to) return;
-  await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [to], subject, text, html: mailHtml(subject, text) }) }).catch(() => {});
+  await resend(env, { to: [to], subject, text, html: mailHtml(subject, text) });
 }
 
 const enc = new TextEncoder();
@@ -219,16 +232,13 @@ async function sendCode(env, email) {
   if (!env.RESEND_API_KEY) throw Object.assign(new Error("Email isn't set up yet. Please try again later."), { status: 503 });
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.DB.prepare("INSERT OR REPLACE INTO codes (email, code_hash, expires, tries) VALUES (?, ?, ?, 0)").bind(email, await sha(code), Date.now() + 10 * 60000).run();
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      from: env.MAIL_FROM || "Nebulux Sites <sites@nebuluxai.com>", to: [email], subject: `${code} is your Nebulux Sites code`,
-      text: `Your Nebulux Sites code is ${code}\n\nIt works for 10 minutes. If you didn't try to sign in, you can ignore this email.`,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f172a"><h2>Your Nebulux Sites code</h2><p style="font-size:34px;font-weight:800;letter-spacing:6px">${code}</p><p>It works for 10 minutes. If you didn't try to sign in, you can ignore this email.</p></div>`,
-    }),
-  }).catch(() => null);
-  if (!r || !r.ok) throw Object.assign(new Error("We couldn't send the email. Please try again in a minute."), { status: 502 });
+  const r = await resend(env, {
+    to: [email], subject: `${code} is your Nebulux Sites code`,
+    text: `Your Nebulux Sites code is ${code}\n\nIt works for 10 minutes. If you didn't try to sign in, you can ignore this email.`,
+    html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f172a"><h2>Your Nebulux Sites code</h2><p style="font-size:34px;font-weight:800;letter-spacing:6px">${code}</p><p>It works for 10 minutes. If you didn't try to sign in, you can ignore this email.</p></div>`,
+  });
+  if (r === "full") throw Object.assign(new Error("We've sent all the emails we can for today, so we can't send your code right now. Please try again tomorrow."), { status: 503 });
+  if (r !== "ok") throw Object.assign(new Error("We couldn't send the email. Please try again in a minute."), { status: 502 });
 }
 async function startSession(env, userId, remember, req, how) {
   if (req) await logAct(env, req, "login", await userById(env, userId), how);
