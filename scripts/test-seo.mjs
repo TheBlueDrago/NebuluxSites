@@ -19,3 +19,7 @@ for (const u of locs) {
 }
 assert(read("robots.txt").includes("Sitemap: " + new URL("/sitemap.xml", locs[0]).href), "robots.txt points to the sitemap");
 for (const f of ["account.html", "billing.html", "admin.html", "404.html"]) assert(/<meta name="robots" content="noindex">/.test(read(f)), `${f} asks search engines not to list it`);
+// The home page's structured data is valid JSON and includes the site's name (what Google shows above results).
+const blocks = [...read("index.html").matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch { return null; } });
+assert(blocks.length && blocks.every(Boolean), "every structured data block on the home page is valid JSON");
+assert(blocks.some((b) => b && b["@type"] === "WebSite" && b.name === "Nebulux Sites" && b.url === locs[0]), "the structured data names the site Nebulux Sites at its home address");
