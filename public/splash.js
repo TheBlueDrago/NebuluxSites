@@ -22,7 +22,7 @@
 #nsSplash .crisp{border-radius:22%;box-shadow:0 0 50px 8px rgba(192,132,252,.45);opacity:0;animation:nsCrisp 2.7s ease-in .62s both}
 #nsSplash .name{position:absolute;left:0;right:0;top:calc(50% + 86px);text-align:center;font:800 clamp(40px,8vw,72px) Sora,Inter,system-ui,sans-serif;letter-spacing:-.025em;background:linear-gradient(90deg,#fff,#ddd6fe,#f0abfc);-webkit-background-clip:text;background-clip:text;color:transparent;opacity:0;animation:nsUp .8s cubic-bezier(.2,.8,.2,1) 2.35s both}
 #nsSplash.fly .name,#nsSplash.fly .halo,#nsSplash.fly .st,#nsSplash.fly .ns-skip{opacity:0!important;transition:opacity .35s}
-#nsSplash .ns-skip{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:rgba(255,255,255,.35);font:500 13px Inter,system-ui,sans-serif}
+#nsSplash .ns-skip{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:rgba(255,255,255,.55);font:500 13px Inter,system-ui,sans-serif}
 @keyframes nsDrift{to{transform:scale(1.12) rotate(4deg)}}
 @keyframes nsStar{0%{transform:scale(.2);opacity:0}30%{opacity:1}80%{transform:scale(1.1);opacity:1}100%{transform:scale(3);opacity:0}}
 @keyframes nsFlash{0%{opacity:0}35%{opacity:.85}100%{opacity:0}}
