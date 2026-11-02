@@ -4,7 +4,7 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "test": "node scripts/test-prices.mjs && node scripts/test-turnstile.mjs && node scripts/test-pages-js.mjs && node scripts/test-email.mjs"
+    "test": "node scripts/test-prices.mjs && node scripts/test-turnstile.mjs && node scripts/test-pages-js.mjs && node scripts/test-email.mjs && node scripts/test-offline.mjs"
   },
   "devDependencies": {
     "wrangler": "4.151.3"

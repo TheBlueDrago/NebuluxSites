@@ -24,7 +24,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const id = new URLSearchParams(location.search).get("id") || "";
 const buy = new URLSearchParams(location.search).get("buy") || "";
-const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
+// No connection (or the server didn't answer with JSON): an answer with a plain-words error, so every button says what happened instead of doing nothing.
+const NETERR = () => (navigator.onLine === false ? "You're offline. Check your connection and try again." : "Couldn't reach Nebulux Sites. Check your connection and try again.");
+const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { const d = await r.json().catch(() => ({})); return { ok: r.ok, ...d, ...(!r.ok && !d.error ? { error: r.status >= 500 ? "Something went wrong on our side. Please try again in a minute." : "Something went wrong. Please try again." } : {}) }; }, () => ({ ok: false, error: NETERR() }));
 const money = (n) => "$" + Number(n || 0).toFixed(2).replace(/\.00$/, "");
 function done(r) {
   if (r.update) { $("card").innerHTML = `<div class="done"><div class="big"><svg class='nx-ic' viewBox='0 0 24 24' width='1em' height='1em' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-.125em'><path d='M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z'/></svg></div><h2 style="margin:6px 0">Update paid!</h2><p class="muted">Thanks! We're working on your update and will email you when it's done.</p><a class="btn" style="margin-top:18px" href="/account.html#mon">Back to Monitor</a></div>`; return; }
@@ -99,7 +101,7 @@ async function start() {
     if (k.ok) done(k); else { $("err").textContent = k.error || "We couldn't confirm the payment. Contact us if you were charged."; }
   };
 }
-start();
+start().catch(() => { $("card").innerHTML = `<p class="muted">${NETERR()}</p><button class="btn" style="margin-top:14px" onclick="location.reload()">Try again</button>`; });
 </script>
 <script src="/help.js" defer></script>
 <script src="/lux.js" defer></script>

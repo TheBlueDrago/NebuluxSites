@@ -166,7 +166,9 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => ({ ok: r.ok, ...(await r.json().catch(() => ({}))) }));
+// No connection (or the server didn't answer with JSON): an answer with a plain-words error, so every button says what happened instead of doing nothing.
+const NETERR = () => (navigator.onLine === false ? "You're offline. Check your connection and try again." : "Couldn't reach Nebulux Sites. Check your connection and try again.");
+const post = (url, body) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).then(async (r) => { const d = await r.json().catch(() => ({})); return { ok: r.ok, ...d, ...(!r.ok && !d.error ? { error: r.status >= 500 ? "Something went wrong on our side. Please try again in a minute." : "Something went wrong. Please try again." } : {}) }; }, () => ({ ok: false, error: NETERR() }));
 let mode = "login", PKG = {}, ADDONS = {}, FIRST = false, FIRST_OFF = 30, FIRST_ENDS = 0;
 const want = new URLSearchParams(location.search).get("package");
 function show(id) { const b = document.getElementById("boot"); if (b) b.remove(); for (const x of ["auth", "code", "app", "reset"]) $(x).style.display = x === id ? "" : "none"; }
@@ -537,7 +539,7 @@ const gq = new URLSearchParams(location.search).get("google");
 const cq = new URLSearchParams(location.search).get("code");
 if (gq) setTimeout(() => { $("authErr").textContent = gq === "off" ? "Google sign-in isn't turned on yet. Use email for now." : "Google sign-in didn't work. Please try again."; }, 300);
 keepDraft();
-start();
+start().catch(() => { const b = $("boot"); if (b) b.innerHTML = `<div class="dorb"></div><p class="muted">${NETERR()}</p><button class="btn" style="margin-top:14px" onclick="location.reload()">Try again</button>`; });
 </script>
 <script src="/help.js" defer></script>
 <script src="/lux.js" defer></script>
