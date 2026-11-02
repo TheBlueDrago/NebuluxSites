@@ -47,9 +47,9 @@ async function load() {
     <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
       ${l.includes ? `<div class="rinc"><b>What's included</b><ul>${l.includes.split("\n").filter(Boolean).map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>` : ""}
       <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : '<small>Price coming soon</small>'}</div>
-      ${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}"><span>${esc(x.name)}${x.blurb ? `<small>${esc(x.blurb)}</small>` : ""}</span><b>+$${x.price}</b></label>`).join("")}
+      ${l.price > 0 ? `${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}"><span>${esc(x.name)}${x.blurb ? `<small>${esc(x.blurb)}</small>` : ""}</span><b>+$${x.price}</b></label>`).join("")}
       <input type="text" class="rname" maxlength="60" aria-label="The new business name" placeholder="Your business name" hidden>
-      <textarea class="rmore" maxlength="1000" rows="2" aria-label="Anything else you want changed" placeholder="Anything else you want changed? (colors, pages, photos…) We'll tell you the price before you pay."></textarea>
+      <textarea class="rmore" maxlength="1000" rows="2" aria-label="Anything else you want changed" placeholder="Anything else you want changed? (colors, pages, photos…) We'll tell you the price before you pay."></textarea>` : ""}
       <div class="rbtns">${l.demo ? `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">See it live ↗</a>` : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
       <p class="rmsg"></p></div></div>`).join("") : '<p class="muted" style="text-align:center;grid-column:1/-1">No ready-made websites right now. Check back soon!</p>';
 }
