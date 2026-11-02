@@ -55,7 +55,7 @@ textarea{min-height:140px;resize:vertical}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
 /* order progress */
 .order{border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:18px;background:rgba(0,0,0,.2)}
-.order-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.order h3{font-size:22px;margin:2px 0}
+.order-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.order-top>div{min-width:0;overflow-wrap:anywhere}.order h3{font-size:22px;margin:2px 0}
 .order h4{margin:20px 0 8px}
 .steps{display:flex;margin:22px 0 14px;gap:4px}
 .steps div{flex:1;text-align:center;font-size:13px;color:var(--muted);position:relative}

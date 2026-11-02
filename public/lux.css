@@ -136,10 +136,15 @@ details.msgs{max-width:none;margin:16px 0 0}
   .tiles{grid-template-columns:repeat(3,1fr)!important;gap:12px}
   .tile b{font-size:22px!important}
   main:has(.dash){padding-left:14px!important;padding-right:14px!important}
-  .dash{grid-template-columns:84px 1fr!important;gap:18px!important}
-  .dside{border-radius:22px!important;border-left:1px solid var(--line)!important;padding:12px 6px!important}
   .dhero{padding:22px}
 }
+/* The icon-only side menu starts at 860px (style.css); a narrow column above that cut off the full menu labels */
+@media (min-width:641px) and (max-width:860px){
+  .dash{grid-template-columns:84px 1fr!important;gap:18px!important}
+  .dside{border-radius:22px!important;border-left:1px solid var(--line)!important;padding:12px 6px!important}
+}
+/* Help sits bottom right whenever the side menu is showing, so it never covers the account button at the menu's foot */
+@media (min-width:641px){body:has(#app .dside) #helpBtn{left:auto!important;right:16px!important}}
 @media (max-width:640px){body:has(#app .dside) #helpBtn{left:auto!important;right:14px!important;opacity:.92}}
 .modal .box{box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto}
 .modal>.box{width:100%!important;max-width:min(460px,100%)!important;min-width:0!important;margin:0!important}
