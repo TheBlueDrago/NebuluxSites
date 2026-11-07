@@ -971,6 +971,8 @@ function sameSite(req, url) {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    // Someone typed http://: send them to the secure address (only on the live workers.dev address, so local tests still work)
+    if (url.protocol === "http:" && url.hostname.endsWith(".workers.dev")) { url.protocol = "https:"; return Response.redirect(url.toString(), 301); }
     // The admin API is called with its key from scripts too (and Nebulux AI's owner check).
     if (!url.pathname.startsWith("/api/admin/") && !sameSite(req, url)) return secure(json({ error: "This request has to come from Nebulux Sites itself." }, 403));
     return secure(await handle(req, env, url));
