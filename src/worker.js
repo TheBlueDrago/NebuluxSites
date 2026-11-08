@@ -199,7 +199,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
   await db.prepare("ALTER TABLE users ADD COLUMN signup_net TEXT DEFAULT ''").run().catch(() => {});
-  for (const c of ["progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "live_url TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
+  for (const c of ["pay_session TEXT DEFAULT ''", "pay_due TEXT DEFAULT ''", "progress INTEGER DEFAULT 0", "claimed TEXT DEFAULT ''", "preview_html TEXT DEFAULT ''", "zip_url TEXT DEFAULT ''", "paid_total REAL DEFAULT 0", "github TEXT DEFAULT ''", "addons TEXT DEFAULT ''", "wish TEXT DEFAULT ''", "msg_credits INTEGER DEFAULT 5", "live_url TEXT DEFAULT ''", "admin_hidden INTEGER DEFAULT 0", "user_hidden INTEGER DEFAULT 0", "promo TEXT DEFAULT ''", "price_before INTEGER DEFAULT 0", "preview_url TEXT DEFAULT ''", "updates TEXT DEFAULT '[]'"]) await db.prepare("ALTER TABLE orders ADD COLUMN " + c).run().catch(() => {});
   // The first ready-made websites. Only added once: after that the owner edits them on the admin page.
   await db.prepare("ALTER TABLE listings ADD COLUMN includes TEXT DEFAULT ''").run().catch(() => {});
   await db.batch(READY_SEED.map(([id, title, blurb, image, demo, inc], i) =>
@@ -480,13 +480,13 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     await logAct(env, req, "request", u, `${id} · ${pkg.name} · $${total}`);
     return json({ ok: true, id });
   }
-  // ---- billing: our own card form (card + billing address) on the Billing page ----
-  // The card fields are Stripe's secure inputs styled as ours, so card numbers never touch this
-  // server (that's required for taking cards). Amounts always come from the order here, never
-  // from the browser, and a payment only counts after Stripe says it SUCCEEDED for the right
-  // order and amount. Money goes to the Stripe balance, which pays out to the owner's debit card
-  // or bank. Secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY.
-  if (path === "/api/billing" || path === "/api/pay/intent" || path === "/api/pay/confirm") {
+  // ---- billing: Stripe's checkout page, the same as Nebulux AI's ----
+  // Card numbers never touch this server. Stripe's page asks for the full billing address and offers
+  // card, Cash App Pay, Klarna and bank (whatever is on in the Stripe dashboard). Amounts always come
+  // from the order here, never from the browser, and a payment only counts after Stripe says it's PAID
+  // for the right order and amount. A bank payment takes a few days, so its checkout is remembered on
+  // the order and looked up again each time the Billing page opens. Secret: STRIPE_SECRET_KEY.
+  if (path === "/api/billing" || path === "/api/pay/checkout" || path === "/api/pay/confirm") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     const id = clip(body.id || new URL(req.url).searchParams.get("id"), 20);
     const o = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").bind(id, u.id).first();
@@ -498,27 +498,51 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (upId && !up) return json({ error: "That update isn't waiting for payment." }, 400);
     const bill = up ? { due: "upd" + up.id, amount: up.price, label: "website update", paid: o.paid_total || 0, left: 0 } : buyMsgs ? { due: "msgs", amount: MSG_PRICE, label: `${MSG_BLOCK} more messages`, paid: o.paid_total || 0, left: Math.max(0, (o.price || 0) - (o.paid_total || 0)) } : billFor(o);
     if (path === "/api/billing") {
-      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, stripe: env.STRIPE_PUBLISHABLE_KEY || "", pay_link: o.pay_link || "", email: u.email, name: u.name });
+      return json({ order: { id: o.id, kind: o.kind, package: o.package, status: o.status, price: o.price, promo: o.promo || "", price_before: o.price_before || 0 }, ...bill, stripe: !!env.STRIPE_SECRET_KEY, pending: (o.pay_session && o.pay_due === bill.due && o.pay_session) || "", pay_link: o.pay_link || "", email: u.email, name: u.name });
     }
-    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PUBLISHABLE_KEY) return json({ error: "Card payments aren't set up yet." }, 503);
+    if (!env.STRIPE_SECRET_KEY) return json({ error: "Payments aren't set up yet. Nothing was charged." }, 503);
     if (!bill.amount) return json({ error: "Nothing to pay right now." }, 400);
     if (!(await allow("pay:" + u.id, 30, 3600))) return json({ error: "Too many tries. Please wait a bit." }, 429);
     const stripe = (p, form) => fetch("https://api.stripe.com/v1/" + p, { method: form ? "POST" : "GET", headers: { authorization: "Bearer " + env.STRIPE_SECRET_KEY, ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}) }, body: form ? new URLSearchParams(form) : undefined }).then((x) => x.json()).catch(() => ({}));
     const cents = Math.round(bill.amount * 100);
-    if (path === "/api/pay/intent") {
-      const pi = await stripe("payment_intents", { amount: String(cents), currency: "usd", "automatic_payment_methods[enabled]": "true", description: `Nebulux Sites ${o.id}: ${bill.label}`, receipt_email: u.email, "metadata[order_id]": o.id, "metadata[due]": bill.due, "metadata[user_id]": u.id });
-      if (!pi.client_secret) return json({ error: "Couldn't start the payment. Please try again." }, 502);
-      return json({ secret: pi.client_secret });
+    if (path === "/api/pay/checkout") {
+      const back = `${SITE}/billing.html?id=${encodeURIComponent(o.id)}${buyWhat ? "&buy=" + encodeURIComponent(buyWhat) : ""}`;
+      const s = await stripe("checkout/sessions", {
+        mode: "payment",
+        success_url: back + "&session={CHECKOUT_SESSION_ID}",
+        cancel_url: back,
+        client_reference_id: u.id,
+        customer_email: u.email,
+        billing_address_collection: "required",
+        "line_items[0][price_data][currency]": "usd",
+        "line_items[0][price_data][product_data][name]": `Nebulux Sites: ${bill.label}`,
+        "line_items[0][price_data][unit_amount]": String(cents),
+        "line_items[0][quantity]": "1",
+        "metadata[source]": "nebulux-sites",
+        "metadata[order_id]": o.id,
+        "metadata[due]": bill.due,
+        "metadata[user_id]": u.id,
+      });
+      if (!s.url) return json({ error: "Couldn't start the payment. Nothing was charged. Please try again." }, 502);
+      return json({ url: s.url });
     }
     // confirm: check with Stripe that it really went through
-    const ppid = String(body.pi || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 60);
-    if (!ppid.startsWith("pi_")) return json({ error: "Missing payment." }, 400);
+    const ppid = String(body.session || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 200);
+    if (!ppid.startsWith("cs_")) return json({ error: "Missing payment." }, 400);
     if (await db.prepare("SELECT 1 FROM payments WHERE ppid = ?").bind(ppid).first()) return json({ ok: true, already: true });
-    const pi = await stripe("payment_intents/" + ppid);
-    if (pi.status !== "succeeded" || pi.currency !== "usd" || pi.amount_received !== cents || !pi.metadata || pi.metadata.order_id !== o.id || pi.metadata.due !== bill.due) {
-      return json({ error: pi.status === "processing" ? "Your payment is still processing. Check back in a minute." : "The payment didn't go through. Please try again." }, 400);
+    const cs = await stripe("checkout/sessions/" + ppid);
+    if (cs.currency !== "usd" || cs.amount_total !== cents || !cs.metadata || cs.metadata.order_id !== o.id || cs.metadata.due !== bill.due || cs.client_reference_id !== u.id) return json({ error: "The payment didn't go through. Please try again." }, 400);
+    if (cs.payment_status !== "paid") {
+      // Finished at Stripe but not paid yet: only a payment Stripe says is still processing counts as waiting.
+      // If the bank refused it, it's forgotten, so they can pay again.
+      const pi = cs.status === "complete" && cs.payment_intent ? await stripe("payment_intents/" + String(cs.payment_intent).replace(/[^A-Za-z0-9_]/g, "")) : null;
+      const waiting = !!pi && pi.status === "processing";
+      // A bank payment: remembered on the order, so the Billing page can check it again and nobody pays twice.
+      await db.prepare("UPDATE orders SET pay_session = ?, pay_due = ? WHERE id = ?").bind(waiting ? ppid : "", waiting ? bill.due : "", o.id).run();
+      return waiting ? json({ error: "Your bank is confirming the payment, which usually takes a few days. Come back to this page after that.", processing: true }, 202) : json({ error: "The payment didn't go through. Please try again." }, 400);
     }
-    const paid = pi.amount_received / 100;
+    if (o.pay_session) await db.prepare("UPDATE orders SET pay_session = '', pay_due = '' WHERE id = ?").bind(o.id).run();
+    const paid = cs.amount_total / 100;
     const now = new Date().toISOString();
     // Claim this payment first: if two requests arrive at once, only one of them gets to use it.
     const claim = await db.prepare("INSERT OR IGNORE INTO payments (ppid, order_id, user_id, amount, kind, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(ppid, o.id, u.id, paid, bill.due, now).run();
@@ -953,7 +977,7 @@ const SAFE = {
   "cross-origin-opener-policy": "same-origin-allow-popups",
 };
 // Only our own scripts, Stripe and Google Fonts can run or load on our pages; nothing can frame them.
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
 function secure(res) {
   const r = new Response(res.body, res);
   for (const [k, v] of Object.entries(SAFE)) if (!r.headers.has(k)) r.headers.set(k, v);

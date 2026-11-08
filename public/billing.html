@@ -67,12 +67,8 @@ async function start() {
       <div><span>Left after this</span><b>${money(Math.max(0, r.left - r.amount))}</b></div>
     </div>
     ${o.promo ? "" : `<form id="promoF" class="row" style="margin-top:4px"><input id="promoIn" aria-label="Promo code" placeholder="Promo code" maxlength="24" style="flex:1;min-width:140px;text-transform:uppercase"><button class="btn ghost">Apply</button></form><p class="muted" id="promoMsg" style="font-size:14px;margin-top:6px"></p>`}
-    <form id="payF">
-      <label class="flab">Card details</label><div id="cardEl" class="fbox"></div>
-      <label class="flab">Billing address</label><div id="addrEl" class="fbox"></div>
-      <button class="btn paybtn" id="payB" disabled>Pay ${money(r.amount)}</button>
-    </form><p class="err" id="err"></p>
-    <div class="secure">Encrypted card payment. Your card details go straight to our secure payment processor, never to our servers.</div>`;
+    <div id="payF"><button class="btn paybtn" id="payB">Pay ${money(r.amount)}</button></div><p class="err" id="err"></p>
+    <div class="secure">You pay on Stripe's secure page, with your full billing address. Card, Cash App Pay, Klarna and bank are offered. Your payment details never reach our servers.</div>`;
   if ($("promoF")) $("promoF").onsubmit = async (e) => {
     e.preventDefault();
     const c = await post("/api/promo", { id, code: $("promoIn").value });
@@ -80,25 +76,24 @@ async function start() {
     start();
   };
   if (!r.stripe) {
-    $("payF").innerHTML = r.pay_link ? `<a class="btn paybtn" href="${esc(r.pay_link)}" target="_blank" rel="noopener noreferrer">Pay ${money(r.amount)}</a>` : `<p class="muted">Card payments are being set up. We'll email you as soon as you can pay here.</p>`;
+    $("payF").innerHTML = r.pay_link ? `<a class="btn paybtn" href="${esc(r.pay_link)}" target="_blank" rel="noopener noreferrer">Pay ${money(r.amount)}</a>` : `<p class="muted">Payments are being set up. We'll email you as soon as you can pay here.</p>`;
     return;
   }
-  const load = () => new Promise((ok, no) => { if (window.Stripe) return ok(); const s = document.createElement("script"); s.src = "https://js.stripe.com/v3/"; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
-  try { await load(); } catch (e) { $("err").textContent = "Couldn't load the card form. Check your internet and refresh."; return; }
-  const c = await post("/api/pay/intent", { id, buy });
-  if (!c.ok) { $("err").textContent = c.error || "Couldn't start the payment."; return; }
-  const stripe = Stripe(r.stripe);
-  const elements = stripe.elements({ clientSecret: c.secret, appearance: { theme: "night", variables: { colorPrimary: "#d16cf5", colorBackground: "#100d26", colorText: "#f5f3ff", colorTextSecondary: "#a9a3cf", colorDanger: "#ff8a80", fontFamily: "Inter, system-ui, sans-serif", borderRadius: "12px", spacingUnit: "4px" }, rules: { ".Input": { border: "1px solid rgba(255,255,255,.12)", boxShadow: "none" }, ".Input:focus": { border: "1px solid #d16cf5", boxShadow: "0 0 0 3px rgba(209,108,245,.2)" }, ".Tab": { border: "1px solid rgba(255,255,255,.12)" } } } });
-  elements.create("payment", { layout: "tabs", fields: { billingDetails: { address: "never" } }, wallets: { applePay: "auto", googlePay: "auto" } }).mount("#cardEl");
-  const addr = elements.create("address", { mode: "billing", defaultValues: { name: r.name || "" } }); addr.mount("#addrEl");
-  $("payB").disabled = false;
-  $("payF").onsubmit = async (e) => {
-    e.preventDefault(); $("err").textContent = ""; $("payB").disabled = true; $("payB").textContent = "Paying…";
-    const a = await addr.getValue();
-    const res = await stripe.confirmPayment({ elements, redirect: "if_required", confirmParams: { receipt_email: r.email, payment_method_data: { billing_details: { name: a.value.name, email: r.email, address: a.value.address } } } });
-    if (res.error) { $("err").textContent = res.error.message || "The payment didn't go through."; $("payB").disabled = false; $("payB").textContent = "Pay " + money(r.amount); return; }
-    const k = await post("/api/pay/confirm", { id, buy, pi: res.paymentIntent.id });
-    if (k.ok) done(k); else { $("err").textContent = k.error || "We couldn't confirm the payment. Contact us if you were charged."; }
+  // Back from Stripe's checkout, or a bank payment from before: ask whether it has gone through.
+  const session = new URLSearchParams(location.search).get("session") || r.pending;
+  if (session) {
+    const k = await post("/api/pay/confirm", { id, buy, session });
+    if (k.ok && !k.processing) { history.replaceState(null, "", "/billing.html?id=" + encodeURIComponent(id) + (buy ? "&buy=" + encodeURIComponent(buy) : "")); done(k); return; }
+    $("payF").innerHTML = "";
+    $("err").textContent = k.error || "We couldn't confirm the payment. Contact us if you were charged.";
+    if (k.processing) return;
+    $("payF").innerHTML = `<button class="btn paybtn" id="payB">Pay ${money(r.amount)}</button>`;
+  }
+  $("payB").onclick = async () => {
+    $("err").textContent = ""; $("payB").disabled = true; $("payB").textContent = "Opening checkout…";
+    const c = await post("/api/pay/checkout", { id, buy });
+    if (c.ok && c.url) { location.href = c.url; return; }
+    $("err").textContent = c.error || "Couldn't start the payment. Nothing was charged."; $("payB").disabled = false; $("payB").textContent = "Pay " + money(r.amount);
   };
 }
 start().catch(() => { $("card").innerHTML = `<p class="muted">${NETERR()}</p><button class="btn" style="margin-top:14px" onclick="location.reload()">Try again</button>`; });
