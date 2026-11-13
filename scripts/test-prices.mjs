@@ -14,7 +14,7 @@ ok(home.includes(`3 months ($${per(PACKAGES.monthly3)}/month)`), "home FAQ: 3-mo
 ok(home.includes(`5 months ($${per(PACKAGES.monthly5)}/month)`), "home FAQ: 5-month price");
 for (const [id, p] of Object.entries(PACKAGES)) ok(home.includes(p.time), `home FAQ: ${id} takes ${p.time}`);
 ok(PACKAGES.monthly3.label === `$${per(PACKAGES.monthly3)}/month` && PACKAGES.monthly5.label === `$${per(PACKAGES.monthly5)}/month`, "monthly labels match their totals");
-const prices = Object.values(PACKAGES).map((p) => p.price);
+const prices = Object.values(PACKAGES).filter((p) => !p.custom).map((p) => p.price);
 ok(Math.min(...prices) < PACKAGES.monthly3.price && PACKAGES.onetime.price === Math.min(...prices), "paying once is the cheapest total");
 for (const [id, a] of Object.entries(ADDONS)) ok(Number.isInteger(a.price) && a.price > 0 && a.name && a.blurb, `add-on ${id} has a name, blurb and whole-dollar price`);
 // The search-engine data (JSON-LD) on the home page lists the same prices.

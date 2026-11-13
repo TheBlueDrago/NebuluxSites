@@ -113,6 +113,7 @@
 
   <div class="sh rv" id="pricing"><span class="eyebrow">Pricing</span><h2>Simple, honest pricing.</h2><p>One price for the build. Pay all at once, or month by month.</p><p class="firstbadge">New accounts: <b>30% off</b> any plan when you order in your first 2 days</p></div>
   <p class="swipehint">Swipe to see every plan&nbsp;→</p><section class="plans" id="plans"></section>
+  <div class="customplan rv" id="custom"><div><span class="tagp">Highest priority</span><h3>Custom</h3><p>For big websites: a company site, a large shop, or anything with lots of pages or special features. Tell us what you need and pick your add-ons. We send you one price, and you owe nothing until you accept it. Then it's $5 to start, and yours goes first.</p></div><a class="btn lux" href="/account.html?package=custom#req">Ask for a custom price&nbsp;→</a></div>
   <div class="addonbar rv" id="addonbar"></div>
   <section class="quote rv" id="quote" aria-labelledby="qh">
     <div class="qleft"><h3 id="qh">Quote estimator</h3><p class="muted">Pick a plan and any extras. This is the same sum your order uses, so the price here is the price you pay.</p>
@@ -129,6 +130,7 @@
   <div class="sh rv" id="faq"><span class="eyebrow">FAQ</span><h2>Questions? Answers.</h2><p>Still curious? Press <b>Help</b> and ask Nebula, our AI agent.</p></div>
   <section class="faq2 rv">
     <details><summary>How long does it take?</summary><p>It depends on your plan. One time ($199) is top priority: about 1–2 weeks. 3 months ($75/month): about 2–3 weeks. 5 months ($49/month) is standard priority: about 1 month. These are estimates, not guarantees.</p></details>
+    <details><summary>What is the Custom plan?</summary><p>Custom is for big websites: a company site, a large shop, or anything with lots of pages or special features. Tell us what you need and pick any add-ons. We read it and send you one price. You owe nothing until you accept it; then you pay the $5 starting fee and we start, ahead of every other plan. How long it takes depends on the website: we tell you with your price.</p></details>
     <details><summary>How do I pay?</summary><p>Sending a request is free. When we accept it, you pay a $5 starting fee on the Billing page (it comes off your price). When your website is finished, you pay the rest there. We email you each time.</p></details>
     <details><summary>What do I get at the end?</summary><p>A ZIP file with your whole website: every page, picture and file. You upload it to your own hosting, and we give you clear, step-by-step instructions.</p></details>
     <details><summary>Where can I put my website online for free?</summary><p>On <a href="https://nebuluxai.com" target="_blank" rel="noopener">Nebulux AI</a>, our sister site. It&rsquo;s free with no pricing: log in, open Website Designer, press New website, choose Upload ZIP and pick your ZIP file. It goes live right away, and you can connect your own domain. It uses the main page only, so it&rsquo;s best for one-page websites. For websites with several pages, use Cloudflare Pages (also free) or any other host.</p></details>
@@ -234,13 +236,20 @@ fetch("/api/packages").then((r) => r.json()).then(({ packages, addons }) => {
   watch();
   // Quote estimator: every number comes from the server (/api/quote), the same sum an order uses.
   const qp = document.getElementById("qPlans"), qa = document.getElementById("qAdds"); let qPlan = "onetime";
-  qp.innerHTML = ["onetime", "monthly3", "monthly5"].filter((k) => packages[k]).map((k) => `<button type="button" data-p="${k}" class="${k === qPlan ? "on" : ""}" aria-pressed="${k === qPlan}"><b>${packages[k].label}</b><span>${packages[k].small} · ${packages[k].time}</span></button>`).join("");
+  qp.innerHTML = ["onetime", "monthly3", "monthly5", "custom"].filter((k) => packages[k]).map((k) => `<button type="button" data-p="${k}" class="${k === qPlan ? "on" : ""}" aria-pressed="${k === qPlan}"><b>${packages[k].label}</b><span>${packages[k].small} · ${packages[k].time}</span></button>`).join("");
   qa.innerHTML = Object.entries(addons || {}).map(([k, a]) => `<label><input type="checkbox" value="${k}"><span>${a.name}</span><b>+$${a.price}</b></label>`).join("");
   const money = (n) => "$" + n;
   const quote = async () => {
     const picks = [...qa.querySelectorAll("input:checked")].map((c) => c.value), first = document.getElementById("qFirst").checked;
     const r = await fetch(`/api/quote?package=${qPlan}&addons=${picks.join(",")}&first=${first ? 1 : 0}`).then((x) => x.json()).catch(() => null); if (!r || !r.quote) return;
     const q = r.quote, per = q.months > 1 ? Math.round(q.plan / q.months) : 0;
+    document.getElementById("qFirst").closest("label").hidden = !!q.custom;
+    if (q.custom) {
+      document.getElementById("qTotal").textContent = "Custom";
+      document.getElementById("qLines").innerHTML = [["For big websites", "companies, large shops"], ...q.addons.map((a) => [addons[a].name, "included in your price"]), ["Your price", "we send it first"], ["Due when you accept it", money(q.deposit)], ["Priority", "highest"]].map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join("");
+      document.getElementById("qGo").href = `/account.html?package=custom${picks.length ? "&addons=" + picks.join(",") : ""}#req`;
+      return;
+    }
     document.getElementById("qTotal").textContent = money(q.total);
     document.getElementById("qLines").innerHTML = [[q.name + " plan", money(q.plan)], ...(q.off ? [["New account deal", "-" + money(q.off)]] : []), ...q.addons.map((a) => [addons[a].name, "+" + money(addons[a].price)]), ["Due when we accept", money(q.deposit)], [per ? `Then about ${money(per)} a month for ${q.months} months` : "The rest when it's finished", per ? "" : money(q.rest)], ["Ready in", q.time]].map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join("");
     document.getElementById("qGo").href = `/account.html?package=${q.package}${picks.length ? "&addons=" + picks.join(",") : ""}#req`;

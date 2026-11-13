@@ -46,7 +46,7 @@ assert(st === 200 && r.quote.total === PACKAGES.monthly3.price + ADDONS.rush.pri
 assert(st === 200 && r.id, "an order goes in");
 const row = db.raw.prepare("SELECT price, addons FROM orders WHERE id = ?").get(r.id);
 assert(row.price === PACKAGES.monthly3.price + ADDONS.rush.price && row.addons === "rush", "and its price is exactly the quote (" + row.price + ")");
-for (const [id, p] of Object.entries(PACKAGES)) assert(page("index.html").includes(p.label.replace("/month", "")) , `the home page's words use ${id}'s real price ${p.label}`);
+for (const [id, p] of Object.entries(PACKAGES)) if (!p.custom) assert(page("index.html").includes(p.label.replace("/month", "")) , `the home page's words use ${id}'s real price ${p.label}`);
 
 // ---- the four steps ----
 assert(STAGES.join() === "Requested,In progress,Preview ready,Delivered", "the four steps are requested, in progress, preview ready, delivered");

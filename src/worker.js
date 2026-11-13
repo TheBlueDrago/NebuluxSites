@@ -9,6 +9,10 @@
 export const PACKAGES = {
   monthly5: { name: "5 months", price: 245, label: "$49/month", small: "for 5 months", priority: "Standard priority", time: "about 1 month", blurb: "Pay a little at a time: $49 a month for 5 months. Lower priority, so it takes the longest." },
   monthly3: { name: "3 months", price: 225, label: "$75/month", small: "for 3 months", priority: "Faster priority", time: "about 2–3 weeks", blurb: "$75 a month for 3 months. We start sooner than the 5-month plan." },
+  // Custom: for big websites (a company site, a large shop, lots of pages). There's no set price: the customer asks and picks
+  // add-ons, the owner sets the price on the admin page and accepts, the customer accepts that price, pays $5, and work starts.
+  // It goes ahead of every other plan.
+  custom: { name: "Custom", price: 0, custom: true, label: "Custom price", small: "we send you the price first", priority: "Highest priority", time: "we tell you with your price", blurb: "For big websites: a company site, a large shop, or anything with lots of pages or special features. Tell us what you need and pick your add-ons. We send you one price, and you owe nothing until you accept it." },
   onetime: { name: "One time", price: 199, label: "$199", small: "one time", priority: "Top priority", time: "about 1–2 weeks", blurb: "Pay once and save. Your site goes first in line, so it's ready fastest." },
 };
 // Add-ons: extras a customer can pick when ordering. Their prices are added to the website's
@@ -39,8 +43,10 @@ const DEPOSIT = 5;
 export function quoteFor(pkgId, addonIds = [], first = false) {
   const id = PACKAGES[pkgId] ? pkgId : "onetime", pkg = PACKAGES[id];
   const addons = [...new Set(Array.isArray(addonIds) ? addonIds : [])].filter((a) => ADDONS[a]);
-  const off = first ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
+  const off = first && !pkg.custom ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
   const extras = addons.reduce((n, a) => n + ADDONS[a].price, 0);
+  // Custom: the owner decides the price after reading the request, so there is no total yet (the add-ons are listed for them).
+  if (pkg.custom) return { package: id, name: pkg.name, custom: true, addons, plan: 0, off: 0, extras, total: 0, deposit: DEPOSIT, rest: 0, months: 1, time: pkg.time, priority: pkg.priority };
   const total = pkg.price - off + extras, months = id === "monthly5" ? 5 : id === "monthly3" ? 3 : 1;
   return { package: id, name: pkg.name, addons, plan: pkg.price, off, extras, total, deposit: Math.min(DEPOSIT, total), rest: Math.max(0, total - DEPOSIT), months, time: pkg.time, priority: pkg.priority };
 }
@@ -58,7 +64,8 @@ export function stageOf(o) {
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
 // (you finish) awaiting payment -> complete. Customers get an email when you accept and when
 // it's finished; you get an email for every new request and every "I've paid".
-const STATUSES = ["in review", "awaiting deposit", "building", "awaiting payment", "complete", "cancelled"];
+// Custom plan only: in review -> (you set the price and accept) awaiting approval -> (they accept the price) awaiting deposit -> as above.
+const STATUSES = ["in review", "awaiting approval", "awaiting deposit", "building", "awaiting payment", "complete", "cancelled"];
 const SITE = "https://nebuluxsites.thebluedragonstriker.workers.dev";
 // Every email also has a branded HTML version: the text in a card, links turned into buttons.
 function mailHtml(subject, text) {
@@ -513,7 +520,7 @@ async function api(req, env, path) {
       env.AIDB.prepare("CREATE TABLE IF NOT EXISTS site_orders (id TEXT PRIMARY KEY, name TEXT, email TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, created_at TEXT, status TEXT DEFAULT 'in review')"),
       env.AIDB.prepare("INSERT OR IGNORE INTO site_orders (id, name, email, package, price, kind, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, u.name, u.email, pkg.name, pkg.price, clip(body.kind, 80), clip(details, 600), now),
     ]).catch(() => {});
-    await mail(env, env.OWNER_EMAIL, `New request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}${extras.length ? " + " + extras.map((a) => ADDONS[a].name).join(", ") : ""}, $${total} total).
+    await mail(env, env.OWNER_EMAIL, `New ${pkg.custom ? "CUSTOM " : ""}request ${id}: ${pkg.name}`, `${u.name} (${u.email}) sent a request (${pkg.label} ${pkg.small}${extras.length ? " + " + extras.map((a) => ADDONS[a].name + " ($" + ADDONS[a].price + ")").join(", ") : ""}, ${pkg.custom ? "no price yet: set it in Price on the admin page, then press Accept and they get it to approve" : "$" + total + " total"}).
 
 ${details}${wish ? "\n\nAnything else they want: " + wish : ""}
 
@@ -795,6 +802,19 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     await mail(env, env.OWNER_EMAIL, `New request ${id}: ready-made ${l.title}`, `${u.name} (${u.email}) wants to buy the ready-made website "${l.title}" for $${total} total.\n\n${details}${note ? "\n\nThey said: " + note : ""}\n\nAccept it on the admin page: ${SITE}/admin.html (press Accept).`);
     return json({ ok: true, id });
   }
+  // Custom plan: the customer accepts the owner's price (then pays the $5 starting fee) or says no thanks (nothing owed).
+  if (path === "/api/order/approve" && req.method === "POST") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    const id = clip(body.id, 20), yes = body.accept === true;
+    const done = await db.prepare("UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'awaiting approval'").bind(yes ? "awaiting deposit" : "cancelled", new Date().toISOString(), id, u.id).run();
+    if (!done.meta || !done.meta.changes) return json({ error: "That price isn't waiting for an answer anymore." }, 400);
+    const o = await db.prepare("SELECT price FROM orders WHERE id = ?").bind(id).first();
+    if (env.AIDB) await env.AIDB.prepare(yes ? "UPDATE site_orders SET status = 'awaiting deposit' WHERE id = ?" : "DELETE FROM site_orders WHERE id = ?").bind(id).run().catch(() => {});
+    await logAct(env, req, yes ? "price accepted" : "price declined", u, `${id} · $${o ? o.price : 0}`);
+    await mail(env, env.OWNER_EMAIL, `${u.name} ${yes ? "accepted" : "said no to"} the price for ${id}`, yes ? `${u.name} (${u.email}) accepted your price of $${o.price} for ${id}. They've been asked for the $5 starting fee; you can start once it's paid.` : `${u.name} (${u.email}) didn't accept the price of $${o ? o.price : 0} for ${id}. The request was closed and nothing was charged.`).catch(() => {});
+    if (yes) await mail(env, u.email, "Thanks! Pay $5 and we start building", `Hi ${u.name || "there"},\n\nThanks for accepting your price of $${o.price}. Pay your $5 starting fee (it comes off the price) and we start building.\n\nPay here: ${SITE}/billing.html?id=${encodeURIComponent(id)}\n\nNebulux Sites`).catch(() => {});
+    return json({ ok: true, status: yes ? "awaiting deposit" : "cancelled" });
+  }
   if (path === "/api/order/remove" && req.method === "POST") {
     const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
     await db.prepare("DELETE FROM orders WHERE id = ? AND user_id = ? AND (status = 'cancelled' OR (status = 'complete' AND admin_hidden = 1))").bind(clip(body.id, 20), u.id).run();
@@ -816,7 +836,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (!env.ADMIN_KEY) return json({ error: "Set the ADMIN_KEY secret on the Worker first." }, 503);
     if (!(await allow("admin:" + ip, 60, 600))) return json({ error: "Too many tries." }, 429);
     if (!(await sameText(req.headers.get("x-admin-key") || "", env.ADMIN_KEY))) return json({ error: "Wrong admin key." }, 403);
-    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
+    if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY (package = 'custom' AND status NOT IN ('complete', 'cancelled')) DESC, created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
     if (path === "/api/admin/feedback") {
@@ -934,6 +954,14 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
         const hasZip = (cur && (cur.github || cur.zip_url)) || ghRepo(body.github || "") || /^https:\/\//.test(String(body.zip_url || "").trim());
         if (!hasZip) return json({ error: "Connect the website's GitHub repo (or add a ZIP link) first, so the customer can download it after paying." }, 400);
       }
+      let quoted = 0;
+      if (status === "awaiting deposit") {
+        const c = await db.prepare("SELECT package, status, price FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
+        if (c && c.package === "custom" && c.status === "in review") {
+          quoted = Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : c.price || 0;
+          if (!(quoted >= DEPOSIT)) return json({ error: "This is a Custom request. Type its price in Price (under More) first, then press Accept. The customer sees the price and has to accept it before paying." }, 400);
+        }
+      }
       const link = String(body.pay_link || "").trim();
       if (link && !/^https:\/\//.test(link)) return json({ error: "A payment link has to start with https://" }, 400);
       const before = await db.prepare("SELECT github, zip_url, status, email, name FROM orders WHERE id = ?").bind(clip(body.id, 20)).first();
@@ -963,8 +991,13 @@ To put it online for free, go to nebuluxai.com, log in, open Website Designer, p
       if (note && note !== old?.note) ups = [{ at: new Date().toISOString(), text: note }, ...ups].slice(0, 30);
       const pct = Math.max(0, Math.min(100, Math.round(+body.progress || 0)));
       await db.prepare("UPDATE orders SET status = COALESCE(?, status), pay_link = ?, note = ?, price = COALESCE(?, price), progress = ?, preview_url = ?, preview_html = COALESCE(?, preview_html), updates = ?, updated_at = ? WHERE id = ?")
-        .bind(status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), typeof body.preview_html === "string" ? clip(body.preview_html, 900000) : null, JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
+        .bind(quoted ? "awaiting approval" : status, clip(link, 500), note, Number.isFinite(+body.price) && body.price !== "" ? Math.round(+body.price) : null, pct, clip(prev, 500), typeof body.preview_html === "string" ? clip(body.preview_html, 900000) : null, JSON.stringify(ups), new Date().toISOString(), clip(body.id, 20)).run();
       if (status && env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(status, clip(body.id, 20)).run().catch(() => {});
+      if (quoted && old) {
+        await mail(env, old.email, "Your custom website price is ready", `Hi ${old.name || "there"},\n\nWe read your request and your price is $${quoted}, with everything you asked for and your add-ons included.\n\nIf you're happy with it, press Accept on your account page. Then you pay the $5 starting fee (it comes off the price) and we start building right away. If it's not for you, press No thanks and you owe nothing.\n\nSee it here: ${SITE}/account.html\n\nNebulux Sites`);
+        if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = 'awaiting approval', price = ? WHERE id = ?").bind(quoted, clip(body.id, 20)).run().catch(() => {});
+        return json({ ok: true, sent: "price" });
+      }
       if (status && old && status !== old.status) {
         await db.prepare("UPDATE orders SET claimed = '' WHERE id = ?").bind(clip(body.id, 20)).run();
         const hi = `Hi ${old.name || "there"},
@@ -1023,7 +1056,7 @@ const SAFE = {
   "cross-origin-opener-policy": "same-origin-allow-popups",
 };
 // Only our own scripts, Stripe and Google Fonts can run or load on our pages; nothing can frame them.
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
+const CSP = "default-src 'self'; frame-src 'self' https://krivianbakery.com; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://nebuluxai.com https://api.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.workers.dev https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
 function secure(res) {
   const r = new Response(res.body, res);
   for (const [k, v] of Object.entries(SAFE)) if (!r.headers.has(k)) r.headers.set(k, v);

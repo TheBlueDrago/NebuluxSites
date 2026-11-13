@@ -40,20 +40,22 @@
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 let EXTRAS = {};
+// websites that can be shown inside the preview: our own pages, and Krivian Bakery (its site allows this address)
+const FRAME_OK = (u) => u.startsWith("/") || /^https:\/\/krivianbakery\.com(\/|$)/.test(u);
 function total(card, price) { let t = price; card.querySelectorAll("[data-x]:checked").forEach((c) => (t += EXTRAS[c.dataset.x].price)); return t; }
 async function load() {
   const r = await fetch("/api/listings").then((x) => x.json()).catch(() => ({}));
   EXTRAS = r.extras || {};
   const L = r.listings || [];
   $("rgrid").innerHTML = L.length ? L.map((l) => `<div class="rcard" data-id="${esc(l.id)}" data-price="${l.price}">
-    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy" width="1200" height="750">` : ""}${l.demo ? (l.demo.startsWith("/") ? `<button class="rlive rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Click to try it live</button>` : `<a class="rlive" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}</div>
+    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy" width="1200" height="750">` : ""}${l.demo ? (FRAME_OK(l.demo) ? `<button class="rlive rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Click to try it live</button>` : `<a class="rlive" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}</div>
     <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
       ${l.includes ? `<div class="rinc"><b>What's included</b><ul>${l.includes.split("\n").filter(Boolean).map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>` : ""}
       <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : '<small>Price coming soon</small>'}</div>
       ${l.price > 0 ? `${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}"><span>${esc(x.name)}${x.blurb ? `<small>${esc(x.blurb)}</small>` : ""}</span><b>+$${x.price}</b></label>`).join("")}
       <input type="text" class="rname" maxlength="60" aria-label="The new business name" placeholder="Your business name" hidden>
       <textarea class="rmore" maxlength="1000" rows="2" aria-label="Anything else you want changed" placeholder="Anything else you want changed? (colors, pages, photos…) We'll tell you the price before you pay."></textarea>` : ""}
-      <div class="rbtns">${l.demo ? (l.demo.startsWith("/") ? `<button class="btn ghost rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Live preview</button>` : `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
+      <div class="rbtns">${l.demo ? (FRAME_OK(l.demo) ? `<button class="btn ghost rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Live preview</button>` : `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
       <p class="rmsg"></p></div></div>`).join("") : '<p class="muted" style="text-align:center;grid-column:1/-1">No ready-made websites right now. Check back soon!</p>';
 }
 document.addEventListener("change", (e) => {
