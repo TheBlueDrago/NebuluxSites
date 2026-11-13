@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our story · Golden Batch (sample website)</title><meta name="robots" content="noindex">
+<meta name="description" content="A sample website built by Nebulux Sites: a cookie shop called Golden Batch.">
+<link rel="stylesheet" href="/demo/golden-batch/demo.css"></head><body>
+<div class="sample"><span>This is a sample website built by Nebulux Sites. Click around: every page works.</span><a href="/account.html#req" target="_top">Get one like this</a></div>
+<header class="top"><a class="brand" href="/demo/golden-batch/"><i></i>Golden Batch</a>
+<nav><a href="/demo/golden-batch/">Home</a><a href="/demo/golden-batch/menu">Menu</a><a href="/demo/golden-batch/story" class="on" aria-current="page">Our story</a><a href="/demo/golden-batch/contact">Order & contact</a></nav>
+<a class="cart" href="/demo/golden-batch/contact" aria-label="Your box">Box <span id="n">0</span></a></header>
+<main class="wrap">
+<section class="hero"><div><h1>It started with one tray.</h1><p>Golden Batch began in a home kitchen with a single tray of chocolate chip cookies for the neighbors. They kept coming back, so we kept baking.</p><p>Today we still mix every batch by hand, brown our own butter and bake before sunrise, so the first box out the door is always warm.</p><div class="row"><a class="btn" href="/demo/golden-batch/menu">Taste the menu</a></div></div>
+<div class="plate"><span class="ck" style="--a:#c79a62;--b:#6b3f24;width:50%;height:50%;left:25%;top:25%"></span></div></section>
+<section class="sec"><h2>How we bake</h2><div class="grid"><div class="quote">Real butter, browned slowly<small>Step one</small></div><div class="quote">Dough rested overnight<small>Step two</small></div><div class="quote">Baked in small batches at 6 a.m.<small>Step three</small></div></div></section></main>
+<footer><div class="wrap"><span>Golden Batch · Fresh cookies, baked every morning</span><span><a href="/demo/golden-batch/menu">Menu</a><a href="/demo/golden-batch/story">Our story</a><a href="/demo/golden-batch/contact">Contact</a></span></div></footer>
+<script>
+// the box counter is kept for this visit only (it's a sample: nothing is sold)
+var n=+(sessionStorage.getItem("gb-box")||0),el=document.getElementById("n");el.textContent=n;
+document.addEventListener("click",function(e){var b=e.target.closest("[data-add]");if(!b)return;n++;sessionStorage.setItem("gb-box",n);el.textContent=n;b.textContent="Added";setTimeout(function(){b.textContent="Add to box"},900)});
+var f=document.querySelector("form");if(f)f.addEventListener("submit",function(e){e.preventDefault();f.hidden=true;document.getElementById("sent").hidden=false;sessionStorage.setItem("gb-box",0);el.textContent=0});
+</script></body></html>

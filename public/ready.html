@@ -23,6 +23,8 @@
 .rbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:6px}.rbtns .btn{flex:1;text-align:center;justify-content:center}
 .rmsg{font-size:14px;margin:0}.rmsg.err{color:#fca5a5}.rmsg.ok{color:#86efac}
 .rnote{text-align:center;color:#a9a3cf;font-size:14px;max-width:640px;margin:-30px auto 40px}.rnote b{color:#e9d5ff}
+.rshot{position:relative}.rlive{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);min-height:44px;padding:0 18px;border:0;border-radius:999px;font:inherit;font-weight:800;font-size:14px;color:#fff;background:rgba(13,11,34,.82);border:1px solid rgba(255,255,255,.25);cursor:pointer;display:inline-flex;align-items:center;text-decoration:none;white-space:nowrap}.rlive:hover{background:#6b5bff}
+#pv{position:fixed;inset:0;z-index:80;background:rgba(5,4,15,.9);display:flex;flex-direction:column}#pv[hidden]{display:none}.pvbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:#141030;border-bottom:1px solid rgba(255,255,255,.12)}.pvbar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pvbar button,.pvbar a{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#ede9fe;font:inherit;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}.pvsz{display:flex;gap:4px}.pvsz button.on{background:#fff;color:#1b1535;border-color:#fff}.pvstage{flex:1;min-height:0;display:flex;justify-content:center;padding:12px}#pvF{width:min(100%,400px);height:100%;border:0;border-radius:16px;background:#fff}#pv.wide #pvF{width:min(100%,1200px)}@media(max-width:700px){.pvsz{display:none}.pvstage{padding:0}#pvF{width:100%;border-radius:0}}
 </style>
 </head><body>
 <header><a class="logo" href="/"><img src="/logo.png" alt="">Nebulux Sites</a><nav><a href="/">Home</a><a class="btn" href="/account.html">My account</a></nav></header>
@@ -44,14 +46,14 @@ async function load() {
   EXTRAS = r.extras || {};
   const L = r.listings || [];
   $("rgrid").innerHTML = L.length ? L.map((l) => `<div class="rcard" data-id="${esc(l.id)}" data-price="${l.price}">
-    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy">` : ""}</div>
+    <div class="rshot">${l.image ? `<img src="${esc(l.image)}" alt="${esc(l.title)} website" loading="lazy" width="1200" height="750">` : ""}${l.demo ? (l.demo.startsWith("/") ? `<button class="rlive rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Click to try it live</button>` : `<a class="rlive" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}</div>
     <div class="rbody"><h3>${esc(l.title)}</h3><p>${esc(l.blurb)}</p>
       ${l.includes ? `<div class="rinc"><b>What's included</b><ul>${l.includes.split("\n").filter(Boolean).map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>` : ""}
       <div class="rprice">${l.price > 0 ? "$" + l.price + " <small>for the website</small>" : '<small>Price coming soon</small>'}</div>
       ${l.price > 0 ? `${Object.entries(EXTRAS).map(([k, x]) => `<label class="rextra"><input type="checkbox" data-x="${k}"><span>${esc(x.name)}${x.blurb ? `<small>${esc(x.blurb)}</small>` : ""}</span><b>+$${x.price}</b></label>`).join("")}
       <input type="text" class="rname" maxlength="60" aria-label="The new business name" placeholder="Your business name" hidden>
       <textarea class="rmore" maxlength="1000" rows="2" aria-label="Anything else you want changed" placeholder="Anything else you want changed? (colors, pages, photos…) We'll tell you the price before you pay."></textarea>` : ""}
-      <div class="rbtns">${l.demo ? `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">See it live ↗</a>` : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
+      <div class="rbtns">${l.demo ? (l.demo.startsWith("/") ? `<button class="btn ghost rprev" type="button" data-demo="${esc(l.demo)}" data-title="${esc(l.title)}">Live preview</button>` : `<a class="btn ghost" href="${esc(l.demo)}" target="_blank" rel="noopener">Open the live website</a>`) : ""}<button class="btn lux rgo" type="button" ${l.price > 0 ? "" : "disabled"}>${l.price > 0 ? "Request it · $" + l.price : "Coming soon"}</button></div>
       <p class="rmsg"></p></div></div>`).join("") : '<p class="muted" style="text-align:center;grid-column:1/-1">No ready-made websites right now. Check back soon!</p>';
 }
 document.addEventListener("change", (e) => {
@@ -70,6 +72,20 @@ document.addEventListener("click", async (e) => {
   msg.className = "rmsg ok"; msg.innerHTML = `Request ${esc(r.id)} sent! We'll email you when we accept it. <a href="/account.html" style="text-decoration:underline">See it in your account</a>.`;
   b.textContent = "Requested ✓"; b.disabled = true;
 });
+// Live preview: the real website in a frame you can click through, as a phone or a computer.
+(() => {
+  const m = document.createElement("div"); m.id = "pv"; m.hidden = true; m.setAttribute("role", "dialog"); m.setAttribute("aria-modal", "true"); m.setAttribute("aria-label", "Live preview");
+  m.innerHTML = '<div class="pvbar"><b id="pvT"></b><span class="pvsz"><button type="button" data-w="phone" class="on">Phone</button><button type="button" data-w="wide">Computer</button></span><a id="pvNew" target="_blank" rel="noopener">Full screen</a><button type="button" id="pvX" aria-label="Close the preview">Close</button></div><div class="pvstage"><iframe id="pvF" title="Live preview" loading="lazy"></iframe></div>';
+  document.body.appendChild(m);
+  const close = () => { m.hidden = true; $("pvF").src = "about:blank"; document.body.style.overflow = ""; };
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".rprev");
+    if (b) { $("pvT").textContent = b.dataset.title; $("pvF").src = b.dataset.demo; $("pvNew").href = b.dataset.demo; m.hidden = false; document.body.style.overflow = "hidden"; return; }
+    const w = e.target.closest(".pvsz button"); if (w) { m.classList.toggle("wide", w.dataset.w === "wide"); m.querySelectorAll(".pvsz button").forEach((x) => x.classList.toggle("on", x === w)); return; }
+    if (e.target.id === "pvX" || e.target === m) close();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) close(); });
+})();
 load();
 </script>
 <script src="/help.js" defer></script>

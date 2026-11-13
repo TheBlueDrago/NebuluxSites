@@ -33,6 +33,28 @@ async function firstDeal(db, userId) {
   return { ok: !before, ends };
 }
 const DEPOSIT = 5;
+// One price for a plan and its add-ons, worked out in one place: the order itself, the quote estimator
+// on the home page (/api/quote) and the emails all use this, so they can never disagree.
+// first: the new-account deal (FIRST_OFF percent off the plan, never the add-ons).
+export function quoteFor(pkgId, addonIds = [], first = false) {
+  const id = PACKAGES[pkgId] ? pkgId : "onetime", pkg = PACKAGES[id];
+  const addons = [...new Set(Array.isArray(addonIds) ? addonIds : [])].filter((a) => ADDONS[a]);
+  const off = first ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
+  const extras = addons.reduce((n, a) => n + ADDONS[a].price, 0);
+  const total = pkg.price - off + extras, months = id === "monthly5" ? 5 : id === "monthly3" ? 3 : 1;
+  return { package: id, name: pkg.name, addons, plan: pkg.price, off, extras, total, deposit: Math.min(DEPOSIT, total), rest: Math.max(0, total - DEPOSIT), months, time: pkg.time, priority: pkg.priority };
+}
+// Where an order is, in the four steps the customer sees: 1 requested, 2 in progress, 3 preview ready, 4 delivered
+// (0 = cancelled). "Preview ready" means there is something to look at: a preview while it's being built, or it's finished and waiting for the last payment.
+export const STAGES = ["Requested", "In progress", "Preview ready", "Delivered"];
+export function stageOf(o) {
+  const st = o && o.status;
+  if (st === "cancelled") return 0;
+  if (st === "complete") return 4;
+  if (st === "awaiting payment") return 3;
+  if (st === "building") return o.has_preview || o.preview_url ? 3 : 2;
+  return 1;
+}
 // The order flow: in review -> (you accept) awaiting deposit -> (they pay $5) building ->
 // (you finish) awaiting payment -> complete. Customers get an email when you accept and when
 // it's finished; you get an email for every new request and every "I've paid".
@@ -173,7 +195,7 @@ export const READY_EXTRAS = {
   protect: { name: "Extra protection", price: 25, blurb: "We add extra security to the website's code so it's much harder to hack or spam: safer forms, stricter security settings and protection against bots." },
 };
 const READY_SEED = [
-  ["golden-batch", "Golden Batch", "A warm, cozy cookie shop website made to sell. Big photos, a clear menu and order buttons everywhere, so visitors turn into customers.", "/ex-goldenbatch.jpg", "",
+  ["golden-batch", "Golden Batch", "A warm, cozy cookie shop website made to sell. Big photos, a clear menu and order buttons everywhere, so visitors turn into customers.", "/ex-goldenbatch.jpg", "/demo/golden-batch/",
     "Home page with a big headline and Order button\nCookie menu with photos, flavors and prices\nBuild-a-dozen box page\nThe Craft (your story) page\nReviews section\nFAQ\nCatering page\nCart and checkout pages (you connect your own payments)"],
   ["krivian-bakery", "Krivian Bakery", "A complete bakery store: customers pick a flavor and a pack, sign in with Google and check out for pickup. Live and working at krivianbakery.com.", "/ex-krivian.jpg", "https://krivianbakery.com/",
     "Photo slideshow you can swipe\nFlavor menu with photos (8 flavors)\nPacks of 4, 8 and 12 with prices\nCart and pickup checkout\nGoogle sign-in and account menu\nHow it works and FAQ sections\nPrivacy, Terms and Allergens pages\nFriendly 404 page"],
@@ -195,6 +217,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, type TEXT, data BLOB, size INTEGER, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, text TEXT, email TEXT, name TEXT, page TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
   ]);
@@ -207,6 +230,8 @@ async function ensure(db) {
   // the first version had short descriptions and no list: fill those in (never over the owner's own edits)
   await db.batch(READY_SEED.map(([id, , blurb, , , inc]) =>
     db.prepare("UPDATE listings SET blurb = CASE WHEN length(blurb) < 100 THEN ? ELSE blurb END, includes = ? WHERE id = ? AND (includes IS NULL OR includes = '')").bind(blurb, inc, id))).catch(() => {});
+  // Golden Batch got a live demo you can click through (public/demo/golden-batch); only filled in where the owner hasn't set one.
+  await db.prepare("UPDATE listings SET demo = '/demo/golden-batch/' WHERE id = 'golden-batch' AND (demo IS NULL OR demo = '')").run().catch(() => {});
   ready = true;
 }
 
@@ -271,7 +296,25 @@ async function api(req, env, path) {
   const ip = req.headers.get("cf-connecting-ip") || "unknown";
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const db = env.DB;
-  if (path === "/api/packages") return json({ packages: PACKAGES, addons: ADDONS, firstOff: FIRST_OFF });
+  if (path === "/api/packages") return json({ packages: PACKAGES, addons: ADDONS, firstOff: FIRST_OFF, deposit: DEPOSIT });
+  // The quote estimator: the same sum an order uses. ?package=onetime&addons=seo,logo&first=1
+  if (path === "/api/quote") {
+    const q = new URL(req.url).searchParams;
+    return json({ quote: quoteFor(q.get("package") || "onetime", (q.get("addons") || "").split(",").filter(Boolean), q.get("first") === "1"), firstOff: FIRST_OFF });
+  }
+  // "Report a bug / request a feature" (the button in the Help box on every page): kept for the admin page and emailed to the owner.
+  if (path === "/api/feedback" && req.method === "POST") {
+    if (body.website) return json({ ok: true }); // a hidden field only bots fill in
+    if (!(await allow("feedback:" + ip, 5, 3600))) return json({ error: "That's a lot of messages. Please try again in an hour." }, 429);
+    const kind = body.kind === "feature" ? "feature" : "bug", text = clip(String(body.text || "").trim(), 2000);
+    if (text.length < 5) return json({ error: "Please write a little more." }, 400);
+    const u = await currentUser(env, req), email = u ? u.email : cleanEmail(body.email);
+    if (email && !validEmail(email)) return json({ error: "That email doesn't look right." }, 400);
+    const where = clip(String(body.page || ""), 120).replace(/[^\w\-./#?=&]/g, "");
+    await db.prepare("INSERT INTO feedback (kind, text, email, name, page, at) VALUES (?, ?, ?, ?, ?, ?)").bind(kind, text, email || "", u ? u.name : "", where, new Date().toISOString()).run();
+    await mail(env, env.OWNER_EMAIL, kind === "bug" ? "Bug report on Nebulux Sites" : "Feature request on Nebulux Sites", `${u ? u.name + " (" + u.email + ")" : email || "A visitor (no email)"} sent a ${kind === "bug" ? "bug report" : "feature request"}${where ? " from " + where : ""}:\n\n${text}\n\nAll of them are on the admin page: ${SITE}/admin.html`).catch(() => {});
+    return json({ ok: true });
+  }
   // Reviews: only from customers whose website is finished, and only shown after the owner approves.
   if (path === "/api/reviews") {
     const r = await db.prepare("SELECT name, business, stars, text, at FROM reviews WHERE approved = 1 ORDER BY at DESC LIMIT 12").all().catch(() => ({ results: [] }));
@@ -455,11 +498,9 @@ async function api(req, env, path) {
     const details = clip(body.details, 4000).trim();
     if (details.length < 20) return json({ error: "Tell us a bit more about the website you want (at least a sentence or two)." }, 400);
     const id = "NS-" + randomHex(4).toUpperCase(), now = new Date().toISOString();
-    const extras = [...new Set(Array.isArray(body.addons) ? body.addons : [])].filter((a) => ADDONS[a]);
     // First website (no earlier order that went ahead): 30% off the plan.
     const deal = await firstDeal(db, u.id);
-    const off = deal.ok ? Math.round(pkg.price * FIRST_OFF / 100) : 0;
-    const total = pkg.price - off + extras.reduce((n, a) => n + ADDONS[a].price, 0);
+    const q = quoteFor(body.package, body.addons, deal.ok), extras = q.addons, total = q.total;
     // The insert itself checks there's no other website in the works, so two requests at once can't both get in.
     const made = await db.prepare("INSERT INTO orders (id, user_id, email, name, package, price, kind, details, pages, deadline, links, status, pay_link, note, created_at, updated_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', ?, ? WHERE NOT EXISTS (SELECT 1 FROM orders WHERE user_id = ? AND status NOT IN ('complete', 'cancelled'))")
       .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now, u.id).run();
@@ -766,8 +807,8 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     const r = await db.prepare("SELECT (SELECT COUNT(*) FROM messages m WHERE m.order_id = orders.id AND m.sender != 'customer') AS team_msgs, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos, id, package, price, kind, details, pages, deadline, status, claimed, paid_total, addons, wish, pay_link, note, progress, preview_url, (length(preview_html) > 0 OR length(github) > 0) AS has_preview, CASE WHEN status != 'complete' THEN '' WHEN zip_url != '' THEN zip_url WHEN github != '' THEN '/api/zip/' || id ELSE '' END AS zip_url, updates, created_at, updated_at FROM orders WHERE user_id = ? AND user_hidden = 0 ORDER BY created_at DESC").bind(u.id).all();
     const orders = r.results || [];
     const deal = await firstDeal(db, u.id), first = deal.ok;
-    for (const o of orders) if (o.has_preview) o.preview_key = await previewKey(env, o.id);
-    return json({ orders, first, firstEnds: deal.ends, firstOff: FIRST_OFF });
+    for (const o of orders) { if (o.has_preview) o.preview_key = await previewKey(env, o.id); o.stage = stageOf(o); }
+    return json({ orders, first, firstEnds: deal.ends, firstOff: FIRST_OFF, stages: STAGES });
   }
 
   // ---- admin (the owner, with the ADMIN_KEY secret) ----
@@ -778,6 +819,11 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/feedback") {
+      if (req.method === "POST") await db.prepare("DELETE FROM feedback WHERE id = ?").bind(+body.id || 0).run();
+      const r = await db.prepare("SELECT id, kind, text, email, name, page, at FROM feedback ORDER BY id DESC LIMIT 200").all();
+      return json({ feedback: r.results || [] });
+    }
     if (path === "/api/admin/listings") {
       if (req.method === "POST") {
         const id = clip(String(body.id || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-"), 40).replace(/^-+|-+$/g, "");

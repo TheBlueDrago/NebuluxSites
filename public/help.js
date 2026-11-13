@@ -24,12 +24,14 @@
 #helpBox .ask{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}#helpBox .ask b{display:flex;align-items:center;gap:8px}#helpBox .ask b i{font-style:normal;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#6b5bff,#d16cf5);font-size:14px}
 #nlog{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:220px;overflow:auto}#nlog div{padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.5;max-width:90%;white-space:pre-wrap}#nlog .u{align-self:flex-end;background:linear-gradient(100deg,#6b5bff,#d16cf5);color:#fff}#nlog .a{align-self:flex-start;background:rgba(255,255,255,.08);color:#e9e5ff}#nlog .w{opacity:.7;font-style:italic}
 #nform{display:flex;gap:6px}#nform input{flex:1;min-width:0;font:inherit;font-size:15px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#fff;outline:none}#nform button{border:0;border-radius:12px;padding:0 14px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(100deg,#6b5bff,#d16cf5)}
+#helpBox .fbk{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}#fbOpen,#fbSend{width:100%;min-height:46px;border:0;border-radius:12px;font:inherit;font-weight:800;color:#fff;cursor:pointer;background:rgba(255,255,255,.1)}#fbSend{background:linear-gradient(100deg,#6b5bff,#d16cf5);margin-top:8px}#fbForm{display:grid;gap:8px;margin-top:10px}#fbForm[hidden]{display:none}.fbk-k{display:flex;gap:6px}.fbk-k button{flex:1;min-height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#e9e5ff;font:inherit;font-weight:700;font-size:14px;cursor:pointer}.fbk-k button.on{background:#fff;color:#1b1535;border-color:#fff}#fbText,#fbEmail{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#fff;outline:none}#fbEmail{min-height:46px}#fbMsg{font-size:14px;margin:0;color:#86efac}#fbMsg.err{color:#fca5a5}#helpX{width:40px;height:40px}
 #helpBox .hl{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#helpBox .hl a{font-size:14px;color:#f0abfc}`;
   document.head.appendChild(css);
   const box = document.createElement("div"); box.id = "helpBox"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Help");
   box.innerHTML = `<button id="helpX" title="Close">✕</button><h3>How can we help?</h3><p>Quick answers about Nebulux Sites:</p>` +
     QA.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join("") +
     `<div class="ask"><b><i>✦</i> Ask Nebula, our AI agent</b><p style="color:#a9a3cf;font-size:13px;margin:4px 0 0">Got another question? Nebula answers anything about Nebulux Sites.</p><div id="nlog"></div><form id="nform"><input id="nin" maxlength="500" placeholder="Ask Nebula a question…" autocomplete="off"><button>Ask</button></form></div>` +
+    `<div class="fbk"><button type="button" id="fbOpen">Report a bug / request a feature</button><form id="fbForm" hidden><div class="fbk-k"><button type="button" data-k="bug" class="on">Report a bug</button><button type="button" data-k="feature">Request a feature</button></div><textarea id="fbText" maxlength="1800" rows="3" aria-label="Your message" placeholder="What went wrong? What did you expect?"></textarea><input id="fbEmail" type="email" autocomplete="email" aria-label="Your email (optional)" placeholder="Your email, if you want a reply (optional)"><input id="fbWeb" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Leave this empty" style="display:none"><button type="submit" id="fbSend">Send to the owner</button><p id="fbMsg" role="status"></p></form></div>` +
     `<div class="hl"><a href="/#faq">All questions</a><a href="/legal.html">Terms & Privacy</a><a href="/account.html">My account</a></div>`;
   const hist = [], log = box.querySelector("#nlog");
   const btn = document.createElement("button"); btn.id = "helpBtn"; btn.type = "button"; btn.innerHTML = "<span style='font-size:18px'>?</span> Help";
@@ -40,6 +42,21 @@
     hist.length = 0; log.innerHTML = ""; box.classList.remove("open");
   };
   btn.onclick = () => (box.classList.contains("open") ? close() : box.classList.add("open"));
+  // Report a bug / request a feature: one tap from the Help box or from any link with data-feedback (it goes to the owner).
+  let fbKind = "bug";
+  const fbForm = box.querySelector("#fbForm"), fbMsg = box.querySelector("#fbMsg"), fbText = box.querySelector("#fbText");
+  const fbShow = () => { box.classList.add("open"); fbForm.hidden = false; box.querySelector("#fbOpen").hidden = true; fbMsg.textContent = ""; fbForm.scrollIntoView({ block: "nearest" }); fbText.focus(); };
+  window.nsFeedback = fbShow;
+  box.querySelector("#fbOpen").onclick = fbShow;
+  document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("[data-feedback]"); if (a) { e.preventDefault(); e.stopPropagation(); fbShow(); } }, true);
+  box.querySelectorAll(".fbk-k button").forEach((b) => (b.onclick = () => { fbKind = b.dataset.k; box.querySelectorAll(".fbk-k button").forEach((x) => x.classList.toggle("on", x === b)); fbText.placeholder = fbKind === "bug" ? "What went wrong? What did you expect?" : "What would you like Nebulux Sites to do?"; }));
+  fbForm.onsubmit = async (e) => {
+    e.preventDefault(); const send = box.querySelector("#fbSend"); send.disabled = true; fbMsg.className = ""; fbMsg.textContent = "Sending...";
+    let j = {}; try { const r = await fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: fbKind, text: fbText.value, email: box.querySelector("#fbEmail").value, website: box.querySelector("#fbWeb").value, page: location.pathname }) }); j = await r.json().catch(() => ({})); } catch { j = { error: "Couldn't send it. Check your internet and try again." }; }
+    send.disabled = false;
+    if (j.error) { fbMsg.className = "err"; fbMsg.textContent = j.error; return; }
+    fbText.value = ""; fbMsg.textContent = "Sent. Thank you! The owner reads every one.";
+  };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   document.addEventListener("click", (e) => { if (!box.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); });
   document.body.append(box, btn);

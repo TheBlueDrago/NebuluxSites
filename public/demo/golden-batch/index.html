@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fresh cookies, baked every morning · Golden Batch (sample website)</title><meta name="robots" content="noindex">
+<meta name="description" content="A sample website built by Nebulux Sites: a cookie shop called Golden Batch.">
+<link rel="stylesheet" href="/demo/golden-batch/demo.css"></head><body>
+<div class="sample"><span>This is a sample website built by Nebulux Sites. Click around: every page works.</span><a href="/account.html#req" target="_top">Get one like this</a></div>
+<header class="top"><a class="brand" href="/demo/golden-batch/"><i></i>Golden Batch</a>
+<nav><a href="/demo/golden-batch/" class="on" aria-current="page">Home</a><a href="/demo/golden-batch/menu">Menu</a><a href="/demo/golden-batch/story">Our story</a><a href="/demo/golden-batch/contact">Order & contact</a></nav>
+<a class="cart" href="/demo/golden-batch/contact" aria-label="Your box">Box <span id="n">0</span></a></header>
+<main class="wrap">
+<section class="hero"><div><h1>Fresh cookies, baked every morning.</h1><p>Small batches, real butter and way too much chocolate. Order a box by noon and pick it up warm.</p><div class="row"><a class="btn" href="/demo/golden-batch/menu">See the menu</a><a class="btn alt" href="/demo/golden-batch/story">Our story</a></div></div>
+<div class="plate"><span class="ck" style="--a:#b9783f;--b:#4a2a14;width:44%;height:44%;left:10%;top:14%"></span><span class="ck" style="--a:#5a341f;--b:#2a160c;width:40%;height:40%;left:48%;top:10%"></span><span class="ck" style="--a:#f0cf6a;--b:#fff3c4;width:42%;height:42%;left:30%;top:46%"></span></div></section>
+<section class="sec"><h2>This week's favorites</h2><p class="lead">Three that sell out first. Add them to your box, or see all six on the menu.</p><div class="grid"><div class="card"><div class="pic"><span class="ck" style="--a:#b9783f;--b:#4a2a14;"></span></div><h3>Classic Chocolate Chip</h3><p>Brown butter, sea salt, three kinds of chocolate.</p><div class="buy"><b>$3.50</b><button class="btn" type="button" data-add>Add to box</button></div></div><div class="card"><div class="pic"><span class="ck" style="--a:#5a341f;--b:#2a160c;"></span></div><h3>Double Fudge</h3><p>Dark cocoa dough with a melted fudge middle.</p><div class="buy"><b>$4.00</b><button class="btn" type="button" data-add>Add to box</button></div></div><div class="card"><div class="pic"><span class="ck" style="--a:#f0cf6a;--b:#fff3c4;"></span></div><h3>Lemon Sugar</h3><p>Bright lemon zest, rolled in sparkling sugar.</p><div class="buy"><b>$3.50</b><button class="btn" type="button" data-add>Add to box</button></div></div></div></section>
+<section class="sec"><div class="band"><div><b>6 a.m.</b><span>when the ovens go on</span></div><div><b>12</b><span>cookies in a box</span></div><div><b>4.9</b><span>stars from our neighbors</span></div></div></section>
+<section class="sec"><h2>What people say</h2><div class="grid"><div class="quote">Still warm when I picked them up. The lemon one is unreal.<small>Maya R.</small></div><div class="quote">We order a box for the office every Friday now.<small>Daniel K.</small></div><div class="quote">Best chocolate chip cookie in town, and I have tried them all.<small>Priya S.</small></div></div></section></main>
+<footer><div class="wrap"><span>Golden Batch · Fresh cookies, baked every morning</span><span><a href="/demo/golden-batch/menu">Menu</a><a href="/demo/golden-batch/story">Our story</a><a href="/demo/golden-batch/contact">Contact</a></span></div></footer>
+<script>
+// the box counter is kept for this visit only (it's a sample: nothing is sold)
+var n=+(sessionStorage.getItem("gb-box")||0),el=document.getElementById("n");el.textContent=n;
+document.addEventListener("click",function(e){var b=e.target.closest("[data-add]");if(!b)return;n++;sessionStorage.setItem("gb-box",n);el.textContent=n;b.textContent="Added";setTimeout(function(){b.textContent="Add to box"},900)});
+var f=document.querySelector("form");if(f)f.addEventListener("submit",function(e){e.preventDefault();f.hidden=true;document.getElementById("sent").hidden=false;sessionStorage.setItem("gb-box",0);el.textContent=0});
+</script></body></html>

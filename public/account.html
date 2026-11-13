@@ -40,6 +40,7 @@
 .pgrid p{grid-column:1/-1;margin:0}
 /* Phones: the folding sections, photo remove buttons and review stars are finger-sized (the layout stays the same) */
 @media (max-width:760px){details.msgs>summary{padding:10px 0;margin:-10px 0}.pgrid button{width:32px;height:32px;font-size:18px}.stars{gap:0;margin:4px -5px}.stars button{padding:6px 5px}}
+.track4{display:flex;gap:4px;margin:16px 0 12px}.track4 div{flex:1;min-width:0;text-align:center;font-size:12.5px;color:var(--muted);position:relative}.track4 div::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:var(--line)}.track4 div:first-child::before{display:none}.track4 .done::before,.track4 .now::before{background:var(--accent)}.track4 i{position:relative;z-index:1;display:grid;place-items:center;width:32px;height:32px;margin:0 auto 6px;border-radius:50%;font-style:normal;font-weight:800;background:#1a1638;border:2px solid var(--line)}.track4 .done i{background:var(--accent);border-color:var(--accent);color:#fff}.track4 .done{color:var(--text)}.track4 .now i{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 5px rgba(209,108,245,.2)}.track4 .now{color:var(--text);font-weight:700}.track4 span{display:block;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -226,6 +227,12 @@ $("resend").onclick = async (e) => { e.preventDefault(); const r = await post("/
 
 const STEPS = ["Request sent", "Accepted · pay $5", "Building", "Finished · pay the rest", "Complete"];
 function stepOf(o) { return { "in review": 0, "awaiting deposit": 1, paid: 2, building: 2, "awaiting payment": 3, done: 5, complete: 5 }[o.status] ?? 0; }
+// The four steps a customer follows (the server works out o.stage: src/worker.js stageOf).
+const STAGES4 = ["Requested", "In progress", "Preview ready", "Delivered"];
+function track(o) {
+  const st = o.stage || 1;
+  return `<div class="track4" role="list" aria-label="Where your website is">${STAGES4.map((n, i) => `<div role="listitem" class="${i + 1 < st || st === 4 ? "done" : i + 1 === st ? "now" : ""}"${i + 1 === st ? ' aria-current="step"' : ""}><i>${i + 1 < st || st === 4 ? "&#10003;" : i + 1}</i><span>${n}</span></div>`).join("")}</div>`;
+}
 function orderCard(o) {
   const src = o.preview_url || (o.has_preview ? "/api/preview/" + encodeURIComponent(o.id) + "/" + o.preview_key + "/" : "");
   const st = stepOf(o), pct = ["done", "complete", "awaiting payment"].includes(o.status) ? 100 : (o.progress || 0);
@@ -237,6 +244,7 @@ function orderCard(o) {
   return `<div class="order">
     <div class="order-top"><div><span class="muted">${esc(o.id)} · ${new Date(o.created_at).toLocaleDateString()}</span><h3>${esc(o.kind || PKG[o.package]?.name || "Your website")}</h3><span class="muted">${PKG[o.package] ? esc(PKG[o.package].label + " " + PKG[o.package].small) : (o.package === "readymade" ? "Ready-made website" : esc(o.package)) + (o.price ? " · $" + o.price : "")}</span>${o.addons ? `<span class="muted" style="display:block;font-size:13px;margin-top:4px">+ ${o.addons.split(",").map((a) => esc((ADDONS[a] || {}).name || a)).join(", ")}</span>` : ""}</div><span class="tag t-${esc(o.status.replace(/ /g, "-"))}">${esc(o.status)}</span></div>
     ${o.status === "cancelled" ? `<div class="declined">${(o.paid_total || 0) > 0 ? `<b>This order was cancelled.</b><p class="muted">Sorry, we had to cancel it. We'll refund what you paid. You can send a new request any time.</p>` : `<b>This request was declined.</b><p class="muted">Sorry, we couldn't take this one on. You weren't charged. You can send a new request any time.</p>`}<button class="btn ghost" onclick="removeOrder('${esc(o.id)}')">Remove</button></div>` : `<div class="steps">`}${o.status === "cancelled" ? "" : `${STEPS.map((s, i) => `<div class="${i < st ? "done" : i === st ? "now" : ""}"><i>${i < st ? "✓" : i + 1}</i><span>${s}</span></div>`).join("")}</div>
+    ${o.status === "cancelled" ? "" : track(o)}
     <div class="bar"><div style="width:${pct}%"></div></div><p class="muted" style="margin-top:6px">${pct}% done${o.status === "building" && PKG[o.package] && PKG[o.package].time ? " · usually ready in " + esc(PKG[o.package].time) : ""}${src ? ` · <a href="#" onclick="view('prev', '${esc(o.id)}');return false">See the live preview&nbsp;→</a>` : ""}</p>`}
     ${pay}
     ${o.status === "complete" && !o.zip_url ? `<div class="zipdone"><b>Paid in full. Thank you!</b><p class="muted">We're getting your ZIP file ready. It will show up right here, and we'll email you as soon as it's ready to download.</p></div>` : ""}
@@ -524,7 +532,9 @@ async function start() {
   // Signed in: the logo opens the dashboard, not the home page.
   const logo = document.querySelector("header .logo"); logo.href = "/account.html#dash"; logo.onclick = (e) => { e.preventDefault(); view("dash"); scrollTo(0, 0); };
   ADDONS = addons || {};
-  $("addons").innerHTML = Object.entries(ADDONS).map(([id, a]) => `<label class="addon"><input type="checkbox" name="addon" value="${id}"><div><b>${esc(a.name)} <span>+$${a.price}</span></b><small>${esc(a.blurb)}</small></div></label>`).join("");
+  $("addons").innerHTML = Object.entries(ADDONS).map(([id, a]) => `<label class="addon"><input type="checkbox" name="addon" value="${id}"><div><b>${esc(a.name)} <span>+${a.price}</span></b><small>${esc(a.blurb)}</small></div></label>`).join("");
+  // add-ons chosen on the home page's quote estimator (/account.html?package=onetime&addons=seo,logo#req)
+  { const want = (new URLSearchParams(location.search).get("addons") || "").split(","); document.querySelectorAll('input[name="addon"]').forEach((c) => { if (want.includes(c.value)) { c.checked = true; c.dispatchEvent(new Event("change", { bubbles: true })); } }); }
   window.sumUp = () => {
     const pk = document.querySelector('input[name="pkg"]:checked'), p = pk ? PKG[pk.value] : null; if (!p) return;
     const extra = [...document.querySelectorAll('input[name="addon"]:checked')].reduce((n, x) => n + ADDONS[x.value].price, 0);
