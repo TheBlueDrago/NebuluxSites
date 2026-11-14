@@ -36,6 +36,7 @@
   </div>
   <div class="box wide" id="list" style="display:none"></div>
   <div class="box wide" id="ups" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Update requests</h2><p class="muted">From finished customers (their Monitor tab). Set a price (0 = free), then mark it done.</p><div id="uplist" style="margin-top:10px"></div></div>
+  <div class="box wide" id="visBox" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Visitors</h2><p class="muted">Counts only, for the last 14 days. No cookies, no internet addresses, nothing about one person. Browsers that ask not to be tracked aren't counted.</p><div id="vis" style="margin-top:10px"></div></div>
   <div class="box wide" id="fbBox" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Bug reports and feature requests</h2><p class="muted">Sent with the Report a bug / request a feature button. You also get each one by email.</p><div id="fblist" style="margin-top:10px"></div></div>
   <div class="box wide" id="revs" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Reviews</h2><p class="muted">From finished customers. Approved ones show on the homepage.</p><div id="rlist" style="margin-top:10px"></div></div>
   <div class="box wide" id="wl" style="display:none"><h2 style="margin:0 0 6px;text-align:left">Waitlist <span class="muted" id="wlc"></span></h2><p class="muted">Emails people left on the "down for maintenance" page.</p><div id="wlist" style="margin-top:10px;max-height:260px;overflow:auto"></div></div>
@@ -73,7 +74,7 @@ document.addEventListener("input", (e) => {
 async function load() {
   const r = await call("/api/admin/orders");
   if (!r.ok) { $("err").textContent = r.error; $("keyBox").style.display = ""; $("list").style.display = "none"; return; }
-  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades(); activity(); listings(); feedback();
+  sessionStorage.setItem("ns-admin", KEY); $("keyBox").style.display = "none"; $("list").style.display = ""; promos(); waitlist(); reviews(); upgrades(); activity(); listings(); feedback(); visits();
   const O = r.orders, sum = (k) => O.filter((o) => k(o)).length;
   const money = O.reduce((n, o) => n + (o.paid_total || 0), 0);
   const tiles = [["Money collected", "$" + money.toFixed(0)], ["Need a reply", sum((o) => o.last_sender === "customer")], ["New requests", sum((o) => o.status === "in review")], ["Waiting to pay", sum((o) => o.status.startsWith("awaiting"))], ["Building now", sum((o) => o.status === "building")], ["Finished", sum((o) => o.status === "complete")]];
@@ -127,6 +128,15 @@ async function promos(body) {
   $("plist").innerHTML = r.promos.length ? `<table><tr><th>Code</th><th>Off</th><th>Used</th><th>Ends</th><th></th></tr>${r.promos.map((p) => `<tr><td><b>${esc(p.code)}</b>${p.active ? "" : ' <span class="tag">off</span>'}</td><td>${p.percent}%</td><td>${p.uses}${p.max_uses ? " / " + p.max_uses : ""}</td><td>${p.expires ? new Date(p.expires).toLocaleDateString() : "never"}</td><td><button class="btn ghost" data-pt="${esc(p.code)}">${p.active ? "Turn off" : "Turn on"}</button> <button class="btn ghost" data-pd="${esc(p.code)}">Delete</button></td></tr>`).join("")}</table>` : '<p class="muted">No codes yet.</p>';
   document.querySelectorAll("[data-pt]").forEach((b) => (b.onclick = () => promos({ action: "toggle", code: b.dataset.pt })));
   document.querySelectorAll("[data-pd]").forEach((b) => (b.onclick = () => confirm("Delete " + b.dataset.pd + "?") && promos({ action: "delete", code: b.dataset.pd })));
+}
+async function visits() {
+  const r = await call("/api/admin/visits"); if (!r.ok || !r.days) return;
+  $("visBox").style.display = "";
+  const sum = (a) => a.reduce((n, d) => n + d.visitors, 0), max = Math.max(1, ...r.days.map((d) => d.visitors)), first = (r.funnel[0] || {}).n || 0;
+  $("vis").innerHTML = `<div class="row" style="gap:10px;flex-wrap:wrap">${[["Today", r.days[r.days.length - 1].visitors], ["Last 7 days", sum(r.days.slice(-7))], ["Last 14 days", sum(r.days)]].map(([l, v]) => `<div class="card" style="flex:1;min-width:120px"><span class="muted" style="font-size:13px">${l}</span><br><b style="font-size:22px">${v}</b></div>`).join("")}</div>
+  <div style="display:flex;align-items:flex-end;gap:3px;height:70px;margin:14px 0" aria-label="Visitors a day">${r.days.map((d) => `<div title="${esc(d.day)}: ${d.visitors} visitors, ${d.views} pages opened" style="flex:1;border-radius:4px 4px 0 0;background:#a78bfa;height:${Math.max(3, (d.visitors / max) * 100)}%"></div>`).join("")}</div>
+  <div class="row" style="gap:24px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:220px"><b>Most opened pages</b>${r.pages.length ? r.pages.map((p) => `<div class="row" style="justify-content:space-between"><span class="muted">${esc(p.path)}</span><b>${p.views}</b></div>`).join("") : '<p class="muted">No visits counted yet.</p>'}</div>
+  <div style="flex:1;min-width:220px"><b>Where people stop</b>${r.funnel.map((f, i) => `<div class="row" style="justify-content:space-between"><span class="muted">${esc(f.label)}</span><span><b>${f.n}</b>${i && first ? " (" + Math.round((f.n / first) * 100) + "%)" : ""}</span></div>`).join("")}</div></div>`;
 }
 async function feedback(body) {
   const r = await call("/api/admin/feedback", body); if (!r.ok) return;

@@ -1,3 +1,13 @@
+// Counts this page being opened (numbers only: no cookie, no id; see "visit counts" in src/worker.js).
+// Browsers that ask not to be tracked aren't counted at all.
+(() => {
+  try {
+    if (navigator.doNotTrack === "1" || navigator.globalPrivacyControl === true || navigator.webdriver === true) return;
+    let first = false;
+    try { first = !sessionStorage.getItem("ns-visit"); if (first) sessionStorage.setItem("ns-visit", "1"); } catch {}
+    fetch("/api/hit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ p: location.pathname, f: first }), keepalive: true }).catch(() => {});
+  } catch {}
+})();
 // The Help button on every page (always on the left side of the screen).
 (() => {
   const QA = [

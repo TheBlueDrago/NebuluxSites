@@ -107,6 +107,16 @@ const res = await worker.fetch(new Request(HOST + "/demo/golden-batch/"), env);
 assert(res.headers.get("x-frame-options") === "SAMEORIGIN", "the demo can be shown inside our own pages, and nobody else's");
 const down = await worker.fetch(new Request(HOST + "/demo/golden-batch/"), { ...env, MAINTENANCE: "on" });
 assert(down.status === 503, "during maintenance the demo is closed like everything else");
+// search engines and link-preview bots read the public pages while people get the down page
+{
+  const m = { ...env, MAINTENANCE: "on" }, G = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+  const bot = (p, ua = G, init = {}) => worker.fetch(new Request(HOST + p, { ...init, headers: { "user-agent": ua } }), m);
+  for (const p of ["/", "/examples", "/ready", "/demo/golden-batch/", "/og.jpg", "/style.css"]) assert((await bot(p)).status !== 503, "maintenance: Googlebot can read " + p);
+  assert((await bot("/", "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)")).status !== 503, "and Discord can make a share card");
+  for (const p of ["/account", "/admin", "/billing", "/api/listings", "/api/quote"]) assert((await bot(p)).status === 503, "maintenance: a crawler still cannot open " + p);
+  assert((await bot("/", G, { method: "POST" })).status === 503, "a crawler can only read");
+  assert((await bot("/", "Mozilla/5.0 (Windows NT 10.0) Chrome/130 Safari/537.36")).status === 503, "a person still gets the down page");
+}
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

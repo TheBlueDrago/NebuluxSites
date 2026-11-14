@@ -74,6 +74,9 @@
     <h3 style="margin-top:20px;font-size:17px">Sign out everywhere</h3>
     <p class="muted" style="font-size:14px">Signs you out on every phone and computer, including this one.</p>
     <button class="btn ghost" id="outAll" style="margin-top:8px">Sign out everywhere</button>
+    <h3 style="margin-top:20px;font-size:17px">Download my data</h3>
+    <p class="muted" style="font-size:14px">One file with everything we keep about your account: your details, requests, messages and payments.</p>
+    <a class="btn ghost" id="expBtn" href="/api/account/export" download="nebulux-sites-my-data.json" style="margin-top:8px;display:inline-flex;align-items:center;min-height:44px">Download my data</a>
     <h3 style="margin-top:22px;font-size:17px;color:#fca5a5">Delete my account</h3>
     <p class="muted" style="font-size:14px">Deletes your account and your orders for good. Download any finished website first. Type your email to confirm.</p>
     <input id="delEmail" type="email" aria-label="Type your email to confirm" placeholder="you@example.com" style="margin-top:8px">
@@ -522,6 +525,31 @@ for (const id of ["password", "rPw"]) {
   b.onclick = () => { const on = i.type === "password"; i.type = on ? "text" : "password"; b.textContent = on ? "Hide" : "Show"; b.setAttribute("aria-label", on ? "Hide password" : "Show password"); };
   w.appendChild(b);
 }
+// A short tour the first time someone is logged in on this device. Skip closes it in one tap, and it never comes back.
+const TOUR = [
+  ["Welcome to Nebulux Sites", "Here's what you can do from your account. It takes 20 seconds."],
+  ["Ask for a website", "Pick a plan, tell us about your business and choose any add-ons. Sending a request is free, and you see the price first."],
+  ["Follow your order", "Your order moves through four steps: Requested, In progress, Preview ready, Delivered. You can open a live preview while we build."],
+  ["Talk to us", "Send us a message about your website any time, right from your order. We reply here and by email."],
+  ["Pay when you're ready", "Billing shows what's due. Nothing is charged until you press Pay, and your finished website is yours to download."],
+];
+function tour(user) {
+  const key = "ns-tour-" + (user.id || user.email || "me");
+  try { if (localStorage.getItem(key)) return; } catch { return; }
+  const done = () => { try { localStorage.setItem(key, "1"); } catch {} wrap.remove(); };
+  const wrap = document.createElement("div"); wrap.id = "tour"; wrap.className = "modal"; wrap.style.display = "flex";
+  wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-modal", "true"); wrap.setAttribute("aria-label", "A quick tour");
+  let i = 0;
+  const draw = () => {
+    const last = i === TOUR.length - 1;
+    wrap.innerHTML = `<div class="box" style="margin:0;max-width:440px;width:100%"><p class="muted" style="font-size:13px;margin:0">${i + 1} of ${TOUR.length}</p><h2 style="margin:6px 0 8px;text-align:left">${esc(TOUR[i][0])}</h2><p style="line-height:1.55">${esc(TOUR[i][1])}</p><div class="row" style="justify-content:space-between;margin-top:18px"><button class="btn ghost" id="tourSkip" style="min-height:46px">${last ? "Close" : "Skip"}</button><button class="btn" id="tourNext" style="min-height:46px">${last ? "Start" : "Next"}</button></div></div>`;
+    wrap.querySelector("#tourSkip").onclick = done;
+    wrap.querySelector("#tourNext").onclick = () => { if (last) return done(); i++; draw(); };
+    wrap.querySelector("#tourNext").focus();
+  };
+  document.body.appendChild(wrap); draw();
+  wrap.addEventListener("keydown", (e) => { if (e.key === "Escape") done(); });
+}
 async function start() {
   const [{ user }, { packages, addons }] = await Promise.all([fetch("/api/me").then((r) => r.json()), fetch("/api/packages").then((r) => r.json())]);
   PKG = packages;
@@ -529,6 +557,7 @@ async function start() {
     if (cq) { $("email").value = cq; $("codeEmail").textContent = cq; show("code"); $("codeIn").focus(); }
     return; }
   $("nav").innerHTML = `<span class="muted">Hi, ${esc(user.name)}</span><a href="#" id="out">Log out</a>`;
+  tour(user);
   document.body.appendChild($("acctModal")); // fixed popups size to the screen, not to the page layout
   $("dme").onclick = () => { $("acctWho").textContent = "Signed in as " + user.email; $("acctErr").textContent = ""; $("acctModal").style.display = "flex"; };
   { const h = new Date().getHours(); $("dhi").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; $("dhName").textContent = "Hi, " + String(user.name || "there").split(" ")[0]; }

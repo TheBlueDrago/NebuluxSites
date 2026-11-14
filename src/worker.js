@@ -185,6 +185,37 @@ function deviceOf(ua) {
   const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
   return [br, os].filter(Boolean).join(" on ") || "Unknown device";
 }
+// ---- visit counts: numbers only (table hits). For each day and page, how many times it was opened and how
+// many visits started there. No cookies, no internet addresses, nothing about a person: the browser itself says
+// "this is the first page of this visit" (public/help.js). Steps ("@order-sent") are counted the same way, by
+// the server, for the admin page's "where people stop".
+const HIT_PAGES = { "/": "/", "/index": "/", "/ready": "/ready", "/examples": "/examples", "/account": "/account", "/billing": "/billing", "/legal": "/legal", "/whats-new": "/whats-new" };
+export const hitPath = (raw) => {
+  const p = String(raw || "").slice(0, 120).split(/[?#]/)[0].toLowerCase().replace(/\.html$/, "").replace(/\/+$/, "") || "/";
+  return HIT_PAGES[p] || (p.startsWith("/demo/") ? "/demo" : null);
+};
+export async function countHit(db, path, first = false, now = Date.now()) {
+  if (!path) return;
+  await db.prepare("INSERT INTO hits (day, path, n, uniq) VALUES (?, ?, 1, ?) ON CONFLICT (day, path) DO UPDATE SET n = n + 1, uniq = uniq + excluded.uniq").bind(new Date(now).toISOString().slice(0, 10), path, first ? 1 : 0).run().catch(() => {});
+}
+const FUNNEL = [["visitors", "Visited"], ["/account", "Opened the account page"], ["@signup-done", "Made an account"], ["@order-sent", "Sent a request"], ["@paid", "Paid"]];
+export async function hitStats(db, span = 14, now = Date.now()) {
+  const from = new Date(now - (span - 1) * 86400000).toISOString().slice(0, 10);
+  const rows = (await db.prepare("SELECT day, path, n, uniq FROM hits WHERE day >= ?").bind(from).all()).results || [];
+  const days = {}, pages = {}, steps = {};
+  for (let i = 0; i < span; i++) days[new Date(now - (span - 1 - i) * 86400000).toISOString().slice(0, 10)] = { views: 0, visitors: 0 };
+  let visitors = 0;
+  for (const r of rows) {
+    if (r.path[0] === "@") { steps[r.path] = (steps[r.path] || 0) + r.n; continue; }
+    if (days[r.day]) { days[r.day].views += r.n; days[r.day].visitors += r.uniq; }
+    pages[r.path] = (pages[r.path] || 0) + r.n; visitors += r.uniq;
+  }
+  return {
+    days: Object.entries(days).map(([day, d]) => ({ day, ...d })),
+    pages: Object.entries(pages).sort((a, b) => b[1] - a[1]).map(([path, views]) => ({ path, views })),
+    funnel: FUNNEL.map(([k, label]) => ({ label, n: k === "visitors" ? visitors : k[0] === "@" ? steps[k] || 0 : pages[k] || 0 })),
+  };
+}
 async function logAct(env, req, kind, u, extra = "") {
   try {
     const cf = req.cf || {};
@@ -224,6 +255,7 @@ async function ensure(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, user_id TEXT, type TEXT, data BLOB, size INTEGER, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, sender TEXT, text TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, created_at TEXT)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS hits (day TEXT NOT NULL, path TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, uniq INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, path))"),
     db.prepare("CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, text TEXT, email TEXT, name TEXT, page TEXT, at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS payments (ppid TEXT PRIMARY KEY, order_id TEXT, user_id TEXT, amount REAL, kind TEXT, created_at TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, user_id TEXT, email TEXT, name TEXT, package TEXT, price INTEGER, kind TEXT, details TEXT, pages TEXT, deadline TEXT, links TEXT, status TEXT, pay_link TEXT, note TEXT, created_at TEXT, updated_at TEXT)"),
@@ -418,6 +450,7 @@ async function api(req, env, path) {
     const u = await db.prepare("SELECT id, verified FROM users WHERE email = ?").bind(email).first();
     if (!u) return json({ error: "Please sign up again." }, 400);
     await db.prepare("UPDATE users SET verified = 1 WHERE id = ?").bind(u.id).run();
+    if (!u.verified) await countHit(db, "@signup-done");
     if (!u.verified) await logAct(env, req, "signup", await userById(env, u.id), "with email");
     return startSession(env, u.id, !!body.remember, req, u.verified ? "email code" : "new account");
   }
@@ -483,6 +516,8 @@ async function api(req, env, path) {
       db.prepare("DELETE FROM users WHERE id = ?").bind(u.id),
     ]);
     if (env.AIDB) await env.AIDB.prepare("DELETE FROM site_orders WHERE email = ?").bind(u.email).run().catch(() => {});
+    // one last email, so an account is never deleted without its owner knowing
+    await mail(env, u.email, "Your Nebulux Sites account was deleted", `Hi ${u.name || "there"},\n\nYour Nebulux Sites account and your orders were deleted, as you asked. You won't get any more emails from us.\n\nIf you didn't ask for this, reply to this email right away.`).catch(() => {});
     return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
   }
   if (path === "/api/logout" && req.method === "POST") {
@@ -491,7 +526,30 @@ async function api(req, env, path) {
     if (t) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha(t)).run();
     return json({ ok: true }, 200, { "set-cookie": setCookie("ns_session", "", 0) });
   }
+  if (path === "/api/hit" && req.method === "POST") {
+    // crawlers aren't visitors, and one browser in a loop can't fill the table (the address is only used for this throttle)
+    if (!/bot|crawl|spider|preview|headless|lighthouse|facebookexternalhit|whatsapp/i.test(req.headers.get("user-agent") || "") && (await allow("hit:" + ip, 90, 60))) await countHit(db, hitPath(body.p), body.f === true);
+    return json({ ok: true });
+  }
   if (path === "/api/me") return json({ user: await currentUser(env, req) });
+  // Download my data: everything we keep about this account, in one file.
+  if (path === "/api/account/export" && req.method === "GET") {
+    const u = await currentUser(env, req); if (!u) return json({ error: "Please log in first." }, 401);
+    if (!(await allow("export:" + u.id, 6, 3600))) return json({ error: "You've downloaded your data a few times just now. Try again in an hour." }, 429);
+    const all = (sql, ...b) => db.prepare(sql).bind(...b).all().then((r) => r.results || []).catch(() => []);
+    const row = await db.prepare("SELECT email, name, created_at FROM users WHERE id = ?").bind(u.id).first();
+    const [orders, messages, upgradesList, reviewsList, payments, photos] = await Promise.all([
+      all("SELECT id, package, price, kind, details, pages, deadline, links, addons, status, progress, paid_total, created_at, updated_at FROM orders WHERE user_id = ?", u.id),
+      all("SELECT m.order_id, m.sender, m.text, m.at FROM messages m JOIN orders o ON o.id = m.order_id WHERE o.user_id = ? ORDER BY m.id", u.id),
+      all("SELECT order_id, text, status, price, at FROM upgrades WHERE user_id = ?", u.id),
+      all("SELECT order_id, business, stars, text, at FROM reviews WHERE user_id = ?", u.id),
+      all("SELECT order_id, amount, kind, created_at FROM payments WHERE user_id = ?", u.id),
+      all("SELECT order_id, type, size, at FROM photos WHERE user_id = ?", u.id),
+    ]);
+    await logAct(env, req, "exported data", u);
+    const file = { about: "Everything Nebulux Sites keeps about your account. Card details are never stored by us (Stripe handles payments).", exported_at: new Date().toISOString(), account: row || { email: u.email, name: u.name }, requests: orders, messages, update_requests: upgradesList, reviews: reviewsList, payments, photos_you_uploaded: photos };
+    return new Response(JSON.stringify(file, null, 2), { headers: { "content-type": "application/json", "content-disposition": 'attachment; filename="nebulux-sites-my-data.json"', "cache-control": "no-store" } });
+  }
 
   // ---- orders ----
   if (path === "/api/order" && req.method === "POST") {
@@ -513,6 +571,7 @@ async function api(req, env, path) {
       .bind(id, u.id, u.email, u.name, body.package, total, clip(body.kind, 80), details, "", clip(body.deadline, 40), clip(body.links, 600), "in review", now, now, u.id).run();
     if (!made.meta || !made.meta.changes) return json({ error: "You already have a website in the works. You can request another one when it's finished." }, 400);
     if (extras.length) await db.prepare("UPDATE orders SET addons = ? WHERE id = ?").bind(extras.join(","), id).run();
+    await countHit(db, "@order-sent");
     const wish = clip(String(body.wish || "").trim(), 1500);
     if (wish) await db.prepare("UPDATE orders SET wish = ? WHERE id = ?").bind(wish, id).run();
     if (env.AIDB) await env.AIDB.prepare("ALTER TABLE site_orders ADD COLUMN status TEXT DEFAULT 'in review'").run().catch(() => {});
@@ -616,6 +675,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
       db.prepare("UPDATE orders SET paid_total = ?, status = ?, claimed = '', updated_at = ? WHERE id = ?").bind(total, next, now, o.id),
     ]);
     if (env.AIDB) await env.AIDB.prepare("UPDATE site_orders SET status = ? WHERE id = ?").bind(next, o.id).run().catch(() => {});
+    await countHit(db, "@paid");
     await mail(env, env.OWNER_EMAIL, `${o.id}: ${u.name} paid $${paid.toFixed(2)}`, `${u.name} (${u.email}) paid $${paid.toFixed(2)} (${bill.label}) for ${o.id} by card.\n\n${bill.due === "deposit" ? "It's now set to \"building\". Time to start making it!" : left > 0 ? `$${left.toFixed(2)} is still left to pay.` : "It's fully paid and now complete, so it now shows in their Monitor tab. Add their live website address on the admin page so Monitor can check it."}\n\n${SITE}/admin.html`);
     if (next === "complete" && !o.github && !o.zip_url) await mail(env, env.OWNER_EMAIL, `${o.id} is paid but has no ZIP!`, `${u.name} (${u.email}) paid in full for ${o.id}, but there's no GitHub repo or ZIP link for it, so they can't download their website. Add it now on the admin page:\n\n${SITE}/admin.html`);
     await mail(env, u.email, `Payment received for ${o.id}`, `Hi ${u.name || "there"},\n\nWe got your payment of $${paid.toFixed(2)} (${bill.label}). Thank you!\n\n${bill.due === "deposit" ? "We're starting on your website now. You can watch the live preview on your account page." : left > 0 ? `$${left.toFixed(2)} is left to pay.` : "Your website is fully paid. Download it from your account page."}\n\n${SITE}/account.html\n\nNebulux Sites`);
@@ -839,6 +899,7 @@ Accept it on the admin page: ${SITE}/admin.html (press Accept).`);
     if (path === "/api/admin/orders") { const r = await db.prepare("SELECT *, (SELECT sender FROM messages m WHERE m.order_id = orders.id ORDER BY m.id DESC LIMIT 1) AS last_sender, (SELECT COUNT(*) FROM photos p WHERE p.order_id = orders.id) AS photos FROM orders WHERE status != 'cancelled' AND admin_hidden = 0 ORDER BY (package = 'custom' AND status NOT IN ('complete', 'cancelled')) DESC, created_at DESC LIMIT 500").all(); return json({ orders: r.results || [], statuses: STATUSES }); }
     // The Nebulux AI owner link checks its password against this same key.
     if (path === "/api/admin/check") return json({ ok: true });
+    if (path === "/api/admin/visits") return json(await hitStats(db));
     if (path === "/api/admin/feedback") {
       if (req.method === "POST") await db.prepare("DELETE FROM feedback WHERE id = ?").bind(+body.id || 0).run();
       const r = await db.prepare("SELECT id, kind, text, email, name, page, at FROM feedback ORDER BY id DESC LIMIT 200").all();
@@ -1082,6 +1143,12 @@ export default {
   },
 };
 
+// Search engines and link-preview bots read the public pages while the site is down for people, so it is in
+// search and shared links show a card on launch day. Only the pages in the sitemap, the demo site and the files
+// they load; never an account, admin or billing page, and nothing under /api/.
+const CRAWLER = /googlebot|google-inspectiontool|googleother|storebot-google|adsbot-google|bingbot|duckduckbot|yahoo! slurp|yandexbot|baiduspider|applebot|facebookexternalhit|facebot|meta-externalagent|twitterbot|discordbot|slackbot|linkedinbot|whatsapp\/|telegrambot|pinterestbot|redditbot|embedly|iframely|skypeuripreview|mastodon|bluesky/i;
+const CRAWL_OK = /^\/(|index\.html|examples(\.html)?|ready(\.html)?|legal(\.html)?|whats-new(\.html)?|demo\/[\w./-]*)$|^\/[\w-]+\.(css|js|png|jpg|webp|ico|svg)$/;
+export const crawlerMayRead = (req, url) => (req.method === "GET" || req.method === "HEAD") && CRAWLER.test(req.headers.get("user-agent") || "") && CRAWL_OK.test(url.pathname) && !/^\/(account|admin|billing)\b/.test(url.pathname);
 async function handle(req, env, url) {
   {
     if (env.MAINTENANCE === "on") {
@@ -1108,11 +1175,10 @@ async function handle(req, env, url) {
       // the down page needs its logo; the admin API is still protected by its own key
       // (the legal page stays readable, so the maintenance page's link to it works)
       const open = p === "/sitemap.xml" || p === "/robots.txt" || p === "/.well-known/security.txt" || p === "/logo.png" || p === "/nebulux-reel.mp4" || p === "/nebulux-reel-poster.jpg" || p === "/legal.html" || p === "/legal" || p.startsWith("/api/admin/") || p.startsWith("/api/preview/"); // previews have their own private key
-      if (!open && !(await isOwner(env, req))) {
+      if (!open && !crawlerMayRead(req, url) && !(await isOwner(env, req))) {
         if (p.startsWith("/api/")) return json({ error: "Nebulux Sites is down for maintenance. Please check back soon." }, 503);
-        // Google checking site ownership (Search Console) needs a normal answer, not "down". Its search
-        // crawler (Googlebot) gets the same 503 as everyone: a 200 "noindex" page would teach Google
-        // that the home page shouldn't be in search, and slow its return after launch.
+        // Google checking site ownership (Search Console) needs a normal answer, not "down". Search crawlers
+        // read the real public pages (crawlerMayRead above), never a 200 "noindex" down page.
         if (/Google-Site-Verification/i.test(req.headers.get("user-agent") || "")) return page(DOWN(), 200);
         return page(DOWN(), 503, { "retry-after": "3600" });
       }
