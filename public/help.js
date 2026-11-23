@@ -17,7 +17,7 @@
     ["What do I set up myself?", "Your domain, your hosting, and a payment provider account if your website takes payments. None of these are included in our price, but we show you exactly how."],
     ["How do I put my website online?", "Easiest (free): download your ZIP from your account, then on nebuluxai.com log in, open Website Designer, press New website, choose Upload ZIP and pick the file. It goes live right away, and you can connect your own domain (it uses the main page only, so it's best for one-page websites). For websites with several pages, use Cloudflare Pages, Netlify or any other host: upload the ZIP there and connect your domain. We give you the steps."],
     ["How does paying work?", "Sending a request is free. When we accept it, you pay a $5 starting fee on the Billing page. When your website is finished, you pay the rest there (by card or Apple Pay), and you get your ZIP file."],
-    ["How long does it take?", "One time ($199): about 1–2 weeks. $75/month: about 2–3 weeks. $49/month: about 1 month."],
+    ["How long does it take?", "It depends on how you pay: one time is built first, then 3 weeks, then 5 weeks. We tell you how long with your price."],
     ["Can I buy a website that's already made?", "Yes! See Ready-made websites (/ready.html). Pick one, add your business name (+$5) or extra protection (+$25), and send a request. Once we accept, you pay the $5 starting fee, then the rest."],
     ["Can I see it while it's being built?", "Yes. Your account page shows a live preview of your website, the progress and our updates."],
   ];

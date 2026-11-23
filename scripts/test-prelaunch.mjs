@@ -45,8 +45,8 @@ assert(st === 200 && r.quote.total === PACKAGES.monthly3.price + ADDONS.rush.pri
 [st, r] = await call("/api/order", { package: "monthly3", addons: ["rush"], details: "A website for my bakery with a menu and a contact page." }, { token: "ann-token" });
 assert(st === 200 && r.id, "an order goes in");
 const row = db.raw.prepare("SELECT price, addons FROM orders WHERE id = ?").get(r.id);
-assert(row.price === PACKAGES.monthly3.price + ADDONS.rush.price && row.addons === "rush", "and its price is exactly the quote (" + row.price + ")");
-for (const [id, p] of Object.entries(PACKAGES)) if (!p.custom) assert(page("index.html").includes(p.label.replace("/month", "")) , `the home page's words use ${id}'s real price ${p.label}`);
+assert(row.price === 0 && row.addons === "rush", "and, like every new request, it waits for the owner's price (" + row.price + ")");
+assert(page("index.html").includes("never more than $50 extra") && page("index.html").includes("payPlans"), "the home page explains the ways to pay from the server's own plans");
 
 // ---- the four steps ----
 assert(STAGES.join() === "Requested,In progress,Preview ready,Delivered", "the four steps are requested, in progress, preview ready, delivered");
@@ -92,7 +92,7 @@ const demo = page("demo/golden-batch/index.html");
 assert(/href="\/demo\/golden-batch\/menu"/.test(demo) && demo.includes('target="_top"') && demo.includes("noindex"), "its pages link to each other, and Get one like this leaves the frame");
 assert(!/[\u{1F300}-\u{1FAFF}]/u.test(demo + page("examples.html")), "no emojis in the new pages");
 const home = page("index.html");
-assert(home.includes('data-src="/demo/golden-batch/"') && home.includes("loading=\"lazy\"") && home.includes('id="quote"') && home.includes("/api/quote"), "the home page has the live demo (loaded lazily) and the quote estimator");
+assert(home.includes('data-src="/demo/golden-batch/"') && home.includes("loading=\"lazy\"") && home.includes('id="quote"') && home.includes('id="qPrice"'), "the home page has the live demo (loaded lazily) and the payment calculator");
 assert(home.includes('href="/examples.html"'), "the home page links to Examples");
 const ex = page("examples.html");
 assert(ex.includes('id="sites"') && ex.includes('id="games"') && ex.includes('id="orbit"') && ex.includes("© 2026 Nebulux LLC"), "the Examples page has websites, games and Orbit uses, and the LLC footer");

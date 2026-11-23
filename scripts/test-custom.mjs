@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import worker, { quoteFor, PACKAGES } from "../src/worker.js";
+import worker, { quoteFor, PACKAGES, planTotals } from "../src/worker.js";
 
 let failed = 0;
 const assert = (c, m) => { if (!c) { failed++; console.error("FAIL", m); } else console.log("ok", m); };
@@ -46,7 +46,7 @@ const annId = r.id;
 [st, r] = await call("/api/order", { package: "custom", addons: ["seo", "logo"], details: "A big company website with forty pages, a careers section and a staff login." }, { token: "bo-token" });
 const cid = r.id, crow = () => db.raw.prepare("SELECT status, price, addons FROM orders WHERE id = ?").get(cid);
 assert(st === 200 && crow().price === 0 && crow().addons === "seo,logo" && crow().status === "in review", "a Custom request goes in with no price and its add-ons");
-const told = mails.find((m) => /CUSTOM/.test(m.subject));
+const told = mails.find((m) => /CUSTOM/.test(m.subject) && /Logo design/.test(m.text));
 assert(told && /no price yet/.test(told.text) && /Logo design/.test(told.text), "the owner's email says it's custom, lists the add-ons and asks for a price");
 [st, r] = await call("/api/admin/orders", null, { admin: true });
 assert(r.orders[0].id === cid && r.orders[1].id === annId, "open Custom requests come first on the admin page");
@@ -69,23 +69,39 @@ assert(st === 400 && crow().status === "awaiting approval", "someone else can't 
 assert(st === 401, "and not without logging in");
 mails.length = 0;
 [st, r] = await call("/api/order/approve", { id: cid, accept: true }, { token: "bo-token" });
-assert(st === 200 && crow().status === "awaiting deposit", "the customer accepts");
+assert(st === 400 && /how you want to pay/.test(r.error) && crow().status === "awaiting approval", "accepting needs a way to pay");
+db.raw.prepare("UPDATE orders SET first_off = 0 WHERE id = ?").run(cid);
+[st, r] = await call("/api/orders", null, { token: "bo-token" });
+const pl = r.orders[0].plans;
+assert(pl && pl.onetime.total === 1450 && pl.weeks3.total === 1475 && pl.weeks5.total === 1500 && pl.weeks5.weekly === 300, "their account shows the three ways to pay: one time, 3 weeks (+$25 at most), 5 weeks (+$50 at most)");
+[st, r] = await call("/api/order/approve", { id: cid, accept: true, plan: "weeks5" }, { token: "bo-token" });
+assert(st === 200 && crow().status === "awaiting deposit" && crow().price === 1500 && db.raw.prepare("SELECT plan FROM orders WHERE id = ?").get(cid).plan === "weeks5", "the customer picks 5 weeks and accepts: the price becomes $1500");
 [st, r] = await call("/api/billing?id=" + cid, null, { token: "bo-token" });
 assert(r.amount === 5, "and now the $5 starting fee is due");
-assert(mails.some((m) => m.to.includes("owner@known.com") && /accepted/.test(m.subject)) && mails.some((m) => m.to.includes("bo@known.com") && /billing/.test(m.text)), "both sides are told");
+assert(mails.some((m) => m.to.includes("owner@known.com") && /accepted/.test(m.subject) && /5 weeks/.test(m.text)) && mails.some((m) => m.to.includes("bo@known.com") && /billing/.test(m.text)), "both sides are told, with the plan");
+// once it's finished, it's paid a week at a time
+db.raw.prepare("UPDATE orders SET status = 'awaiting payment', paid_total = 5 WHERE id = ?").run(cid);
+[st, r] = await call("/api/billing?id=" + cid, null, { token: "bo-token" });
+assert(r.amount === 300 && /week/.test(r.label), "when it's finished, it's paid $300 a week (" + r.amount + ", " + r.label + ")");
+db.raw.prepare("UPDATE orders SET status = 'awaiting deposit', paid_total = 0 WHERE id = ?").run(cid);
+{ const t = planTotals(250); assert(t.onetime.total === 250 && t.weeks3.total === 275 && t.weeks5.total === 300, "a $250 price: $250 once, $275 over 3 weeks, $300 over 5 weeks"); }
+{ const t = planTotals(100); assert(t.weeks3.total === 110 && t.weeks5.total === 120, "a $100 price: $110 over 3 weeks, $120 over 5 weeks"); }
+{ const t = planTotals(100, 30); assert(t.onetime.total === 70, "a new account's 30% comes off the owner's price"); }
 [st] = await call("/api/order/approve", { id: cid, accept: true }, { token: "bo-token" });
 assert(st === 400, "it can't be answered twice");
 db.raw.prepare("UPDATE orders SET status = 'awaiting approval' WHERE id = ?").run(cid);
 [st, r] = await call("/api/order/approve", { id: cid, accept: false }, { token: "bo-token" });
 assert(st === 200 && crow().status === "cancelled", "No thanks closes it, with nothing owed");
 // an ordinary plan is accepted the usual way
+assert(db.raw.prepare("SELECT package FROM orders WHERE id = ?").get(annId).package === "custom", "every new request is Custom, even if an old plan was asked for");
 [st, r] = await call("/api/admin/order", { id: annId, status: "awaiting deposit", price: "" }, { admin: true });
-assert(st === 200 && db.raw.prepare("SELECT status FROM orders WHERE id = ?").get(annId).status === "awaiting deposit", "other plans are accepted straight away, as before");
+assert(st === 400, "so it needs a price before it can be accepted");
 
 const acct = page("account.html"), hm = page("index.html");
 assert(acct.includes("approve(") && acct.includes("No thanks") && acct.includes("awaiting approval"), "the account page has Accept and No thanks");
 assert(hm.includes('id="custom"') && /company site/.test(hm) && hm.includes("package=custom") && hm.includes("What is the Custom plan?"), "the home page explains Custom is for big websites like companies");
-assert(page("admin.html").includes("Custom request (highest priority)"), "the admin page tells the owner how a Custom request works");
+assert(page("admin.html").includes("Build one-time orders first") && page("admin.html").includes("1st priority: one time"), "the admin page tells the owner how a Custom request works and the order to build in");
+assert(!/cancel/i.test(acct.slice(acct.indexOf("function orderCard"), acct.indexOf("function orderCard") + 6000).replace(/cancelled|can't be cancelled|be cancelled|had to cancel it/g, "")), "there's no cancel button for a customer's plan");
 const csp = (await worker.fetch(new Request(HOST + "/ready.html"), env)).headers.get("content-security-policy");
 assert(/frame-src 'self' https:\/\/krivianbakery\.com/.test(csp) && page("ready.html").includes("FRAME_OK"), "Krivian Bakery is allowed inside the live preview");
 
