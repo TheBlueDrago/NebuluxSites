@@ -231,7 +231,7 @@ fetch("/api/packages").then((r) => r.json()).then(({ addons, payPlans }) => {
   const totals = (price) => Object.fromEntries(ids.map((k) => { const p = P[k], t = price + Math.min(p.cap, Math.round(price * p.pct / 100)); return [k, { ...p, total: t, extra: t - price, weekly: Math.ceil(t / p.weeks) }]; }));
   document.getElementById("plans").innerHTML = ids.map((id, i) => {
     const p = P[id], best = id === "onetime";
-    return `<div class="plan rv d${i}${best ? " best" : ""}"><span class="tagp">${best ? "Best deal · " : ""}${p.priority}</span><h3>${best ? "One payment" : "Over " + p.name}</h3><div class="pr">${best ? "Your price" : "+" + p.pct + "%"}<small>${best ? " once" : " at most $" + p.cap + " extra"}</small></div><div class="tot">${best ? "No extra, ever" : p.weeks + " weekly payments"}</div><ul>${(FEAT[id] || []).map((f) => `<li>${f}</li>`).join("")}</ul><a class="btn ${best ? "lux" : "glass"}" href="/account.html?package=custom#req">Ask for your price</a></div>`;
+    return `<div class="plan rv d${i}${best ? " best" : ""}"><span class="tagp">${best ? "Best deal · " : ""}${p.priority}</span><h3>${best ? "One payment" : "Over " + p.name}</h3><div class="pr">${best ? "+$0" : "+" + p.pct + "%"}<small>${best ? " extra" : " max $" + p.cap}</small></div><div class="tot">${best ? "Your price, paid once" : p.weeks + " weekly payments, never more than $" + p.cap + " extra"}</div><ul>${(FEAT[id] || []).map((f) => `<li>${f}</li>`).join("")}</ul><a class="btn ${best ? "lux" : "glass"}" href="/account.html?package=custom#req">Ask for your price</a></div>`;
   }).join("");
   watch();
   // the payment calculator
